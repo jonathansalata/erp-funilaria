@@ -1,0 +1,9 @@
+-- =============================================================================
+-- Migration: 0010_storage_policies.sql
+-- Descrição: Buckets do Supabase Storage e políticas de acesso
+-- Referência: docs/ARCHITECTURE.md (seção 5.3)
+-- =============================================================================
+--
+-- Placeholder da Fase 0. A implementação do schema (tabelas, índices,
+-- constraints, RLS e triggers) será feita na Fase 1, conforme o roadmap
+-- definido em docs/ARCHITECTURE.md.

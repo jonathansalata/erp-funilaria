@@ -1,0 +1,9 @@
+-- =============================================================================
+-- Migration: 0007_service_orders.sql
+-- Descrição: Ordens de serviço (OS) e itens da OS
+-- Referência: docs/ARCHITECTURE.md (seção 7)
+-- =============================================================================
+--
+-- Placeholder da Fase 0. A implementação do schema (tabelas, índices,
+-- constraints, RLS e triggers) será feita na Fase 1, conforme o roadmap
+-- definido em docs/ARCHITECTURE.md.

@@ -1,0 +1,9 @@
+-- =============================================================================
+-- Migration: 0002_rbac.sql
+-- Descrição: Organizações, perfis (profiles), papéis (roles) e permissões (RBAC)
+-- Referência: docs/ARCHITECTURE.md (seção 8)
+-- =============================================================================
+--
+-- Placeholder da Fase 0. A implementação do schema (tabelas, índices,
+-- constraints, RLS e triggers) será feita na Fase 1, conforme o roadmap
+-- definido em docs/ARCHITECTURE.md.

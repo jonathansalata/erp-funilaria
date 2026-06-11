@@ -1,0 +1,7 @@
+-- =============================================================================
+-- Seed de dados iniciais (ambiente local de desenvolvimento)
+-- =============================================================================
+--
+-- Placeholder da Fase 0. Os dados de seed (organização padrão, papéis,
+-- taxonomias padrão, usuário administrador, etc.) serão adicionados a
+-- partir da Fase 1, conforme as migrations forem implementadas.

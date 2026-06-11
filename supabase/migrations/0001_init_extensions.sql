@@ -1,0 +1,9 @@
+-- =============================================================================
+-- Migration: 0001_init_extensions.sql
+-- Descrição: Extensões do Postgres (uuid-ossp / pgcrypto, pg_trgm, etc.)
+-- Referência: docs/ARCHITECTURE.md (seção 6)
+-- =============================================================================
+--
+-- Placeholder da Fase 0. A implementação do schema (tabelas, índices,
+-- constraints, RLS e triggers) será feita na Fase 1, conforme o roadmap
+-- definido em docs/ARCHITECTURE.md.
