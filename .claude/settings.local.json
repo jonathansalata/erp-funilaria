@@ -6,7 +6,24 @@
       "Bash(npx supabase *)",
       "Bash(rm -rf .next)",
       "Bash(npm run *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/orcamentos)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/orcamentos?status=aguardando_aprovacao\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/orcamentos/q1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ordens-servico)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(grep -oE 'Orçamentos aguardando aprovação.{0,200}')",
+      "Bash(grep -oE 'Entregas previstas hoje.{0,200}')",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s http://localhost:3000/ -o /tmp/dash.html)",
+      "Bash(grep -oE 'Orçamentos aguardando aprovação.{0,400}' /tmp/dash.html)",
+      "Bash(grep -oE 'Entregas previstas hoje.{0,400}' /tmp/dash.html)",
+      "Bash(curl -s \"http://localhost:3000/orcamentos?status=aguardando_aprovacao\" -o /tmp/orc.html)",
+      "Bash(curl -s \"http://localhost:3000/ordens-servico?status=entregas_hoje\" -o /tmp/os.html)",
+      "Bash(netstat -ano)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)"
     ]
   }
 }

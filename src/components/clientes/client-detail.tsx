@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { FileText, Plus } from "lucide-react";
 
@@ -15,6 +17,7 @@ import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import { SERVICE_ORDERS } from "@/lib/mock-data/service-orders-data";
 import { JOURNEY_STAGE_META, getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 const CLIENT_TYPE_LABELS: Record<Client["type"], string> = {
   pessoa_fisica: "Pessoa física",
@@ -26,8 +29,9 @@ type ClientDetailProps = {
 };
 
 export function ClientDetail({ client }: ClientDetailProps) {
+  const storeVehicles = useErpDataStore((state) => state.vehicles);
   const vehicles = client.vehicleIds
-    .map(getVehicleById)
+    .map((id) => storeVehicles.find((vehicle) => vehicle.id === id))
     .filter((v): v is NonNullable<typeof v> => v !== undefined);
   const quotes = QUOTES.filter((quote) => quote.clientId === client.id);
   const serviceOrders = SERVICE_ORDERS.filter((order) => order.clientId === client.id);

@@ -2,14 +2,15 @@ import type { StatusVariant } from "@/components/shared/status-badge";
 import { getClientById } from "@/lib/mock-data/clients";
 import { INSPECTIONS } from "@/lib/mock-data/inspections";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
-import { calculateQuoteTotal, QUOTES } from "@/lib/mock-data/quotes-data";
+import { calculateQuoteTotal, type Quote } from "@/lib/mock-data/quotes-data";
+import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
-import { SERVICE_ORDERS } from "@/lib/mock-data/service-orders-data";
+import type { ServiceOrder } from "@/lib/mock-data/service-orders-data";
 import {
   getVehicleLabelById,
   JOURNEY_STAGE_META,
-  VEHICLES,
   type JourneyStage,
+  type Vehicle,
 } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -17,9 +18,12 @@ import { formatCurrency, formatDate } from "@/lib/utils";
  * Dados do Dashboard (Operacional + Gerencial) computados a partir das entidades relacionais
  * (QUOTES, SERVICE_ORDERS, VEHICLES, INSPECTIONS). Indicadores financeiros (faturamento, ticket
  * médio, faturamento por categoria) permanecem majoritariamente mockados nesta fase.
+ *
+ * Os indicadores operacionais que dependem de QUOTES/SERVICE_ORDERS são expostos como funções
+ * (`getOperationalKpis`, `getUpcomingDeliveries`, `getRecentQuotes`) para que possam ser
+ * recalculados a partir da store reativa (`useErpDataStore`) e permanecerem sincronizados com
+ * as telas de Pipeline/Lista/Detalhe.
  */
-
-const REFERENCE_DATE = "2026-06-11";
 
 export type OperationalKpi = {
   title: string;
@@ -28,43 +32,48 @@ export type OperationalKpi = {
   href?: string;
 };
 
-const osEmExecucao = SERVICE_ORDERS.filter((order) => order.status === "em_execucao").length;
-const vistoriasPendentes = INSPECTIONS.filter(
-  (inspection) => inspection.status === "pendente",
-).length;
-const orcamentosAguardandoAprovacao = QUOTES.filter(
-  (quote) => quote.status === "enviado" || quote.status === "em_negociacao",
-).length;
-const entregasPrevistasHoje = SERVICE_ORDERS.filter(
-  (order) => order.dueDate.startsWith(REFERENCE_DATE) && order.status !== "entregue",
-).length;
+export function getOperationalKpis(
+  quotes: Quote[],
+  serviceOrders: ServiceOrder[],
+): OperationalKpi[] {
+  const osEmExecucao = serviceOrders.filter((order) => order.status === "em_execucao").length;
+  const vistoriasPendentes = INSPECTIONS.filter(
+    (inspection) => inspection.status === "pendente",
+  ).length;
+  const orcamentosAguardandoAprovacao = quotes.filter(
+    (quote) => quote.status === "enviado" || quote.status === "em_negociacao",
+  ).length;
+  const entregasPrevistasHoje = serviceOrders.filter(
+    (order) => order.dueDate.startsWith(REFERENCE_DATE) && order.status !== "entregue",
+  ).length;
 
-export const OPERATIONAL_KPIS: OperationalKpi[] = [
-  {
-    title: "OS em execução",
-    value: String(osEmExecucao),
-    description: "no pátio agora",
-    href: "/ordens-servico?status=em_execucao",
-  },
-  {
-    title: "Vistorias pendentes",
-    value: String(vistoriasPendentes),
-    description: "aguardando início",
-    href: "/vistorias?status=pendente",
-  },
-  {
-    title: "Orçamentos aguardando aprovação",
-    value: String(orcamentosAguardandoAprovacao),
-    description: "enviados ao cliente",
-    href: "/orcamentos?status=enviado",
-  },
-  {
-    title: "Entregas previstas hoje",
-    value: String(entregasPrevistasHoje),
-    description: formatDate(REFERENCE_DATE),
-    href: "/ordens-servico?status=finalizado",
-  },
-];
+  return [
+    {
+      title: "OS em execução",
+      value: String(osEmExecucao),
+      description: "no pátio agora",
+      href: "/ordens-servico?status=em_execucao",
+    },
+    {
+      title: "Vistorias pendentes",
+      value: String(vistoriasPendentes),
+      description: "aguardando início",
+      href: "/vistorias?status=pendente",
+    },
+    {
+      title: "Orçamentos aguardando aprovação",
+      value: String(orcamentosAguardandoAprovacao),
+      description: "enviados ao cliente",
+      href: "/orcamentos?status=aguardando_aprovacao",
+    },
+    {
+      title: "Entregas previstas hoje",
+      value: String(entregasPrevistasHoje),
+      description: formatDate(REFERENCE_DATE),
+      href: "/ordens-servico?status=entregas_hoje",
+    },
+  ];
+}
 
 export type ManagerialKpi = {
   title: string;
@@ -108,14 +117,14 @@ export type JourneyStageSummary = {
 };
 
 /** Resumo do Pátio por `vehicle_journey_stage` (ARCHITECTURE.md, seção 7.4.2). */
-export const VEHICLE_JOURNEY_SUMMARY: JourneyStageSummary[] = (
-  Object.keys(JOURNEY_STAGE_META) as JourneyStage[]
-).map((stage) => ({
-  id: stage,
-  label: JOURNEY_STAGE_META[stage].label,
-  count: VEHICLES.filter((vehicle) => vehicle.journeyStage === stage).length,
-  variant: JOURNEY_STAGE_META[stage].variant,
-}));
+export function getVehicleJourneySummary(vehicles: Vehicle[]): JourneyStageSummary[] {
+  return (Object.keys(JOURNEY_STAGE_META) as JourneyStage[]).map((stage) => ({
+    id: stage,
+    label: JOURNEY_STAGE_META[stage].label,
+    count: vehicles.filter((vehicle) => vehicle.journeyStage === stage).length,
+    variant: JOURNEY_STAGE_META[stage].variant,
+  }));
+}
 
 export type UpcomingDelivery = {
   id: string;
@@ -124,24 +133,38 @@ export type UpcomingDelivery = {
   vehicle: string;
   time: string;
   status: { label: string; variant: StatusVariant };
+  quoteId?: string;
+  quoteCode?: string;
 };
 
-export const UPCOMING_DELIVERIES: UpcomingDelivery[] = SERVICE_ORDERS.filter(
-  (order) => order.status !== "entregue",
-)
-  .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-  .slice(0, 4)
-  .map((order) => ({
-    id: order.id,
-    code: order.code,
-    client: getClientById(order.clientId)?.name ?? "Cliente não encontrado",
-    vehicle: getVehicleLabelById(order.vehicleId),
-    time: `Previsão: ${formatDate(order.dueDate)}`,
-    status: {
-      label: SERVICE_ORDER_STATUS_META[order.status].title,
-      variant: SERVICE_ORDER_STATUS_META[order.status].variant,
-    },
-  }));
+export function getUpcomingDeliveries(
+  serviceOrders: ServiceOrder[],
+  quotes: Quote[],
+): UpcomingDelivery[] {
+  return serviceOrders
+    .filter((order) => order.status !== "entregue")
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    .slice(0, 4)
+    .map((order) => {
+      const originQuote = order.quoteId
+        ? quotes.find((quote) => quote.id === order.quoteId)
+        : undefined;
+
+      return {
+        id: order.id,
+        code: order.code,
+        client: getClientById(order.clientId)?.name ?? "Cliente não encontrado",
+        vehicle: getVehicleLabelById(order.vehicleId),
+        time: `Previsão: ${formatDate(order.dueDate)}`,
+        status: {
+          label: SERVICE_ORDER_STATUS_META[order.status].title,
+          variant: SERVICE_ORDER_STATUS_META[order.status].variant,
+        },
+        quoteId: originQuote?.id,
+        quoteCode: originQuote?.code,
+      };
+    });
+}
 
 export type RecentQuote = {
   id: string;
@@ -152,20 +175,22 @@ export type RecentQuote = {
   status: { label: string; variant: StatusVariant };
 };
 
-export const RECENT_QUOTES: RecentQuote[] = [...QUOTES]
-  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  .slice(0, 4)
-  .map((quote) => ({
-    id: quote.id,
-    code: quote.code,
-    client: getClientById(quote.clientId)?.name ?? "Cliente não encontrado",
-    vehicle: getVehicleLabelById(quote.vehicleId),
-    value: formatCurrency(calculateQuoteTotal(quote.items).total),
-    status: {
-      label: QUOTE_STATUS_META[quote.status].title,
-      variant: QUOTE_STATUS_META[quote.status].variant,
-    },
-  }));
+export function getRecentQuotes(quotes: Quote[]): RecentQuote[] {
+  return [...quotes]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 4)
+    .map((quote) => ({
+      id: quote.id,
+      code: quote.code,
+      client: getClientById(quote.clientId)?.name ?? "Cliente não encontrado",
+      vehicle: getVehicleLabelById(quote.vehicleId),
+      value: formatCurrency(calculateQuoteTotal(quote.items).total),
+      status: {
+        label: QUOTE_STATUS_META[quote.status].title,
+        variant: QUOTE_STATUS_META[quote.status].variant,
+      },
+    }));
+}
 
 export type RevenueByCategory = {
   category: string;

@@ -55,9 +55,18 @@ export function KanbanBoard<T>({ columns, getItemId, renderCard }: KanbanBoardPr
   );
 }
 
-export function KanbanCard({ className, children }: { className?: string; children: ReactNode }) {
+export function KanbanCard({
+  className,
+  children,
+  onClick,
+}: {
+  className?: string;
+  children: ReactNode;
+  onClick?: () => void;
+}) {
   return (
     <div
+      onClick={onClick}
       className={cn(
         "bg-card text-card-foreground border-border flex flex-col gap-2 rounded-lg border p-3 text-sm shadow-xs transition-shadow hover:shadow-sm",
         className,

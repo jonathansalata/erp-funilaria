@@ -22,11 +22,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { CLIENTS } from "@/lib/mock-data/clients";
 import type { QuoteItem } from "@/lib/mock-data/quotes-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ComboboxOption = { value: string; label: string };
 
 export function NewQuoteForm() {
   const router = useRouter();
+  const createQuote = useErpDataStore((state) => state.createQuote);
   const [clientId, setClientId] = useState("");
   const [vehicleId, setVehicleId] = useState("");
   const [items, setItems] = useState<QuoteItem[]>([]);
@@ -68,6 +70,7 @@ export function NewQuoteForm() {
       return;
     }
 
+    createQuote({ clientId, vehicleId, items, notes: notes.trim() || undefined });
     toast.success("Orçamento criado com sucesso.");
     router.push("/orcamentos");
   }

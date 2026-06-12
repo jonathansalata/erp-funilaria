@@ -1,11 +1,13 @@
 import type { Attachment } from "@/lib/mock-data/attachments";
+import type { StatusChangeEvent } from "@/lib/mock-data/status-history";
 
 export type ServiceOrderStatus =
   | "aguardando_inicio"
   | "em_execucao"
   | "aguardando_peca"
   | "finalizado"
-  | "entregue";
+  | "entregue"
+  | "cancelado";
 
 export type ServiceOrderItem = {
   id: string;
@@ -46,6 +48,7 @@ export type ServiceOrder = {
   dueDate: string;
   createdAt: string;
   updatedAt: string;
+  statusHistory?: StatusChangeEvent[];
 };
 
 export const SERVICE_ORDERS: ServiceOrder[] = [

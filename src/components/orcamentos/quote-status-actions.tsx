@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Check, Send, X } from "lucide-react";
+import { ArrowRight, Check, MessageSquare, Send, X } from "lucide-react";
 
+import { StatusOverrideAction } from "@/components/shared/status-override-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import type { Quote, QuoteStatus } from "@/lib/mock-data/quotes-data";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type QuoteStatusActionsProps = {
   quote: Quote;
@@ -29,8 +32,15 @@ type PendingAction = {
   onConfirm: () => void;
 };
 
+const QUOTE_STATUS_OPTIONS = Object.entries(QUOTE_STATUS_META).map(([value, meta]) => ({
+  value,
+  label: meta.title,
+}));
+
 export function QuoteStatusActions({ quote, status, onStatusChange }: QuoteStatusActionsProps) {
   const router = useRouter();
+  const createServiceOrderFromQuote = useErpDataStore((state) => state.createServiceOrderFromQuote);
+  const changeQuoteStatus = useErpDataStore((state) => state.changeQuoteStatus);
   const [pending, setPending] = useState<PendingAction | null>(null);
 
   function handleConfirm() {
@@ -55,33 +65,60 @@ export function QuoteStatusActions({ quote, status, onStatusChange }: QuoteStatu
     </Dialog>
   );
 
-  if (status === "rascunho") {
-    return (
-      <>
-        <Button
-          onClick={() =>
-            setPending({
-              title: "Enviar orçamento",
-              description: `Confirma o envio do orçamento ${quote.code} para o cliente?`,
-              confirmLabel: "Enviar",
-              onConfirm: () => {
-                onStatusChange("enviado");
-                toast.success("Orçamento enviado ao cliente.");
-              },
-            })
-          }
-        >
-          <Send />
-          Enviar orçamento
-        </Button>
-        {dialog}
-      </>
-    );
-  }
+  const statusOverride = (
+    <StatusOverrideAction
+      currentStatus={status}
+      options={QUOTE_STATUS_OPTIONS}
+      entityLabel={`o orçamento ${quote.code}`}
+      onConfirm={(newStatus, reason) =>
+        changeQuoteStatus(quote.id, newStatus as QuoteStatus, reason)
+      }
+    />
+  );
 
-  if (status === "enviado" || status === "em_negociacao") {
-    return (
+  let flowActions: React.ReactNode = null;
+
+  if (status === "rascunho") {
+    flowActions = (
+      <Button
+        onClick={() =>
+          setPending({
+            title: "Enviar orçamento",
+            description: `Confirma o envio do orçamento ${quote.code} para o cliente?`,
+            confirmLabel: "Enviar",
+            onConfirm: () => {
+              onStatusChange("enviado");
+              toast.success("Orçamento enviado ao cliente.");
+            },
+          })
+        }
+      >
+        <Send />
+        Enviar orçamento
+      </Button>
+    );
+  } else if (status === "enviado" || status === "em_negociacao") {
+    flowActions = (
       <>
+        {status === "enviado" && (
+          <Button
+            variant="outline"
+            onClick={() =>
+              setPending({
+                title: "Negociar orçamento",
+                description: `Marcar o orçamento ${quote.code} como em negociação com o cliente?`,
+                confirmLabel: "Negociar",
+                onConfirm: () => {
+                  onStatusChange("em_negociacao");
+                  toast.success("Orçamento em negociação com o cliente.");
+                },
+              })
+            }
+          >
+            <MessageSquare />
+            Negociar
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={() =>
@@ -115,38 +152,35 @@ export function QuoteStatusActions({ quote, status, onStatusChange }: QuoteStatu
           <Check />
           Aprovar
         </Button>
-        {dialog}
       </>
+    );
+  } else if (status === "aprovado") {
+    flowActions = (
+      <Button
+        onClick={() =>
+          setPending({
+            title: "Converter em Ordem de Serviço",
+            description: `Confirma a conversão do orçamento ${quote.code} em uma Ordem de Serviço?`,
+            confirmLabel: "Converter",
+            onConfirm: () => {
+              const serviceOrder = createServiceOrderFromQuote(quote.id);
+              toast.success("Ordem de Serviço criada a partir do orçamento.");
+              router.push(serviceOrder ? `/ordens-servico/${serviceOrder.id}` : "/ordens-servico");
+            },
+          })
+        }
+      >
+        <ArrowRight />
+        Converter em OS
+      </Button>
     );
   }
 
-  if (status === "aprovado") {
-    return (
-      <>
-        <Button
-          onClick={() =>
-            setPending({
-              title: "Converter em Ordem de Serviço",
-              description: `Confirma a conversão do orçamento ${quote.code} em uma Ordem de Serviço?`,
-              confirmLabel: "Converter",
-              onConfirm: () => {
-                toast.success("Ordem de Serviço criada a partir do orçamento.");
-                router.push(
-                  quote.convertedServiceOrderId
-                    ? `/ordens-servico/${quote.convertedServiceOrderId}`
-                    : "/ordens-servico",
-                );
-              },
-            })
-          }
-        >
-          <ArrowRight />
-          Converter em OS
-        </Button>
-        {dialog}
-      </>
-    );
-  }
-
-  return null;
+  return (
+    <>
+      {flowActions}
+      {statusOverride}
+      {dialog}
+    </>
+  );
 }

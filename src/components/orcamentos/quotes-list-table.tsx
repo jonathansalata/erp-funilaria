@@ -74,11 +74,17 @@ export function QuotesListTable({ quotes, initialStatus }: QuotesListTableProps)
     {
       id: "status",
       label: "Status",
-      options: Object.entries(QUOTE_STATUS_META).map(([value, meta]) => ({
-        label: meta.title,
-        value,
-      })),
-      predicate: (quote, value) => quote.status === value,
+      options: [
+        ...Object.entries(QUOTE_STATUS_META).map(([value, meta]) => ({
+          label: meta.title,
+          value,
+        })),
+        { label: "Aguardando aprovação", value: "aguardando_aprovacao" },
+      ],
+      predicate: (quote, value) =>
+        value === "aguardando_aprovacao"
+          ? quote.status === "enviado" || quote.status === "em_negociacao"
+          : quote.status === value,
     },
   ];
 

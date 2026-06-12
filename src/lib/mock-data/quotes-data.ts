@@ -1,6 +1,13 @@
 import type { Attachment } from "@/lib/mock-data/attachments";
+import type { StatusChangeEvent } from "@/lib/mock-data/status-history";
 
-export type QuoteStatus = "rascunho" | "enviado" | "em_negociacao" | "aprovado" | "recusado";
+export type QuoteStatus =
+  | "rascunho"
+  | "enviado"
+  | "em_negociacao"
+  | "aprovado"
+  | "recusado"
+  | "cancelado";
 
 export type QuoteItem = {
   id: string;
@@ -24,6 +31,7 @@ export type Quote = {
   updatedAt: string;
   validUntil?: string;
   convertedServiceOrderId?: string;
+  statusHistory?: StatusChangeEvent[];
 };
 
 export const QUOTE_CATEGORY_LABELS: Record<QuoteItem["category"], string> = {

@@ -4,9 +4,11 @@ export type JourneyStage =
   | "aguardando_vistoria"
   | "em_vistoria"
   | "aguardando_aprovacao"
+  | "aguardando_inicio"
   | "em_execucao"
   | "aguardando_peca"
-  | "pronto_para_retirada";
+  | "pronto_para_retirada"
+  | "entregue";
 
 export type Vehicle = {
   id: string;
@@ -26,9 +28,11 @@ export const JOURNEY_STAGE_META: Record<JourneyStage, { label: string; variant: 
   aguardando_vistoria: { label: "Aguardando vistoria", variant: "default" },
   em_vistoria: { label: "Em vistoria", variant: "info" },
   aguardando_aprovacao: { label: "Aguardando aprovação", variant: "warning" },
+  aguardando_inicio: { label: "Aguardando início", variant: "default" },
   em_execucao: { label: "Em execução", variant: "primary" },
   aguardando_peca: { label: "Aguardando peça", variant: "warning" },
   pronto_para_retirada: { label: "Pronto para retirada", variant: "success" },
+  entregue: { label: "Entregue", variant: "success" },
 };
 
 export const VEHICLES: Vehicle[] = [

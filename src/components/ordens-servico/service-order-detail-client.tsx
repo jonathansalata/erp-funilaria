@@ -7,7 +7,7 @@ import { ServiceOrderStatusActions } from "@/components/ordens-servico/service-o
 import { ChecklistCard } from "@/components/shared/checklist-card";
 import { EntityHeader } from "@/components/shared/entity-header";
 import { FileDropzone } from "@/components/shared/file-dropzone";
-import { Timeline } from "@/components/shared/timeline";
+import { Timeline, type TimelineEntry } from "@/components/shared/timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/table";
 import { getClientById } from "@/lib/mock-data/clients";
 import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
-import { getQuoteById } from "@/lib/mock-data/quotes-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import {
   calculateServiceOrderTotal,
@@ -30,22 +29,39 @@ import {
 import { getTechnicianById } from "@/lib/mock-data/technicians";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ServiceOrderDetailClientProps = {
   order: ServiceOrder;
 };
 
 export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProps) {
-  const [status, setStatus] = useState<ServiceOrderStatus>(order.status);
-  const [technicianId, setTechnicianId] = useState(order.technicianId);
+  const storeOrder = useErpDataStore((state) =>
+    state.serviceOrders.find((item) => item.id === order.id),
+  );
+  const status = storeOrder?.status ?? order.status;
+  const technicianId = storeOrder?.technicianId ?? order.technicianId;
+  const statusHistory = storeOrder?.statusHistory ?? [];
+  const changeServiceOrderStatus = useErpDataStore((state) => state.changeServiceOrderStatus);
+  const setServiceOrderTechnician = useErpDataStore((state) => state.setServiceOrderTechnician);
+  const quote = useErpDataStore((state) =>
+    order.quoteId ? state.quotes.find((item) => item.id === order.quoteId) : undefined,
+  );
   const [checklist, setChecklist] = useState<ChecklistItem[]>(order.checklist);
   const [photos, setPhotos] = useState(order.photos);
 
   const client = getClientById(order.clientId);
   const vehicle = getVehicleById(order.vehicleId);
-  const quote = order.quoteId ? getQuoteById(order.quoteId) : undefined;
   const total = calculateServiceOrderTotal(order.items);
   const events = getEventsForEntity("service_order", order.id).map(mapEntityEventToTimelineEntry);
+  const statusHistoryEntries: TimelineEntry[] = statusHistory.map((event) => ({
+    id: event.id,
+    title: `${SERVICE_ORDER_STATUS_META[event.from as ServiceOrderStatus]?.title ?? event.from} → ${SERVICE_ORDER_STATUS_META[event.to as ServiceOrderStatus]?.title ?? event.to}`,
+    description: event.reason,
+    timestamp: event.timestamp,
+    author: event.user,
+    variant: SERVICE_ORDER_STATUS_META[event.to as ServiceOrderStatus]?.variant,
+  }));
 
   const photosAntes = photos.filter((photo) => photo.tag === "antes");
   const photosDepois = photos.filter((photo) => photo.tag === "depois");
@@ -70,8 +86,10 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
             order={order}
             status={status}
             technicianId={technicianId}
-            onStatusChange={setStatus}
-            onTechnicianChange={setTechnicianId}
+            onStatusChange={(newStatus) => changeServiceOrderStatus(order.id, newStatus)}
+            onTechnicianChange={(newTechnicianId) =>
+              setServiceOrderTechnician(order.id, newTechnicianId)
+            }
           />
         }
       />
@@ -187,6 +205,18 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
             </CardHeader>
             <CardContent>
               <Timeline entries={events} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Timeline
+                entries={statusHistoryEntries}
+                emptyMessage="Nenhuma alteração manual de status registrada."
+              />
             </CardContent>
           </Card>
         </div>

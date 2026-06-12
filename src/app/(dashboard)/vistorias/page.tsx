@@ -1,17 +1,23 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { InspectionsListTable } from "@/components/vistorias/inspections-list-table";
 import { Button } from "@/components/ui/button";
-import { INSPECTIONS } from "@/lib/mock-data/inspections";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
-export default async function VistoriasPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ status?: string }>;
-}) {
-  const { status } = await searchParams;
+function VistoriasContent() {
+  const searchParams = useSearchParams();
+  const status = searchParams.get("status") ?? undefined;
+  const inspections = useErpDataStore((state) => state.inspections);
 
+  return <InspectionsListTable inspections={inspections} initialStatus={status} />;
+}
+
+export default function VistoriasPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -27,7 +33,9 @@ export default async function VistoriasPage({
         </Button>
       </div>
 
-      <InspectionsListTable inspections={INSPECTIONS} initialStatus={status} />
+      <Suspense>
+        <VistoriasContent />
+      </Suspense>
     </div>
   );
 }

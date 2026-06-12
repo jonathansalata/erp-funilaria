@@ -27,16 +27,17 @@ import { getClientById } from "@/lib/mock-data/clients";
 import { formatDateTime } from "@/lib/utils";
 import {
   JOURNEY_STAGE_META,
-  VEHICLES,
   getVehicleLabel,
   type JourneyStage,
   type Vehicle,
 } from "@/lib/mock-data/vehicles";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 const JOURNEY_STAGES = Object.keys(JOURNEY_STAGE_META) as JourneyStage[];
 
 export default function PatioPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(VEHICLES);
+  const vehicles = useErpDataStore((state) => state.vehicles);
+  const setVehicleJourneyStage = useErpDataStore((state) => state.setVehicleJourneyStage);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [pendingStage, setPendingStage] = useState<JourneyStage | null>(null);
 
@@ -66,17 +67,7 @@ export default function PatioPage() {
   function saveStage() {
     if (!editingVehicle || !pendingStage) return;
 
-    setVehicles((current) =>
-      current.map((vehicle) =>
-        vehicle.id === editingVehicle.id
-          ? {
-              ...vehicle,
-              journeyStage: pendingStage,
-              journeyStageUpdatedAt: new Date().toISOString(),
-            }
-          : vehicle,
-      ),
-    );
+    setVehicleJourneyStage(editingVehicle.id, pendingStage);
     toast.success(
       `${getVehicleLabel(editingVehicle)} movido para "${JOURNEY_STAGE_META[pendingStage].label}".`,
     );

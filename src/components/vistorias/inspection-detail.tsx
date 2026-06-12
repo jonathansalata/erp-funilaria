@@ -18,27 +18,31 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientById } from "@/lib/mock-data/clients";
 import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
-import {
-  INSPECTION_STATUS_META,
-  type Inspection,
-  type InspectionStatus,
-} from "@/lib/mock-data/inspections";
-import { getQuoteById } from "@/lib/mock-data/quotes-data";
+import { INSPECTION_STATUS_META, type Inspection } from "@/lib/mock-data/inspections";
 import type { ChecklistItem } from "@/lib/mock-data/service-orders-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type InspectionDetailProps = {
   inspection: Inspection;
 };
 
 export function InspectionDetail({ inspection }: InspectionDetailProps) {
-  const [status, setStatus] = useState<InspectionStatus>(inspection.status);
+  const status = useErpDataStore(
+    (state) =>
+      state.inspections.find((item) => item.id === inspection.id)?.status ?? inspection.status,
+  );
+  const changeInspectionStatus = useErpDataStore((state) => state.changeInspectionStatus);
+  const quote = useErpDataStore((state) =>
+    inspection.convertedQuoteId
+      ? state.quotes.find((item) => item.id === inspection.convertedQuoteId)
+      : undefined,
+  );
   const [checklist, setChecklist] = useState<ChecklistItem[]>(inspection.checklist);
   const [photos, setPhotos] = useState(inspection.photos);
 
   const client = getClientById(inspection.clientId);
   const vehicle = getVehicleById(inspection.vehicleId);
-  const quote = inspection.convertedQuoteId ? getQuoteById(inspection.convertedQuoteId) : undefined;
   const events = getEventsForEntity("inspection", inspection.id).map(mapEntityEventToTimelineEntry);
 
   function toggleChecklistItem(id: string, done: boolean) {
@@ -60,7 +64,7 @@ export function InspectionDetail({ inspection }: InspectionDetailProps) {
           <InspectionStatusActions
             inspection={inspection}
             status={status}
-            onStatusChange={setStatus}
+            onStatusChange={(newStatus) => changeInspectionStatus(inspection.id, newStatus)}
           />
         }
       />

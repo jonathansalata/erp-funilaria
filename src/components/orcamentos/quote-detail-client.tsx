@@ -6,7 +6,7 @@ import Link from "next/link";
 import { QuoteStatusActions } from "@/components/orcamentos/quote-status-actions";
 import { EntityHeader } from "@/components/shared/entity-header";
 import { FileDropzone } from "@/components/shared/file-dropzone";
-import { Timeline } from "@/components/shared/timeline";
+import { Timeline, type TimelineEntry } from "@/components/shared/timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -27,19 +27,31 @@ import {
 } from "@/lib/mock-data/quotes-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type QuoteDetailClientProps = {
   quote: Quote;
 };
 
 export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
-  const [status, setStatus] = useState<QuoteStatus>(quote.status);
+  const storeQuote = useErpDataStore((state) => state.quotes.find((item) => item.id === quote.id));
+  const status = storeQuote?.status ?? quote.status;
+  const statusHistory = storeQuote?.statusHistory ?? [];
+  const changeQuoteStatus = useErpDataStore((state) => state.changeQuoteStatus);
   const [attachments, setAttachments] = useState(quote.attachments);
 
   const client = getClientById(quote.clientId);
   const vehicle = getVehicleById(quote.vehicleId);
   const totals = calculateQuoteTotal(quote.items);
   const events = getEventsForEntity("quote", quote.id).map(mapEntityEventToTimelineEntry);
+  const statusHistoryEntries: TimelineEntry[] = statusHistory.map((event) => ({
+    id: event.id,
+    title: `${QUOTE_STATUS_META[event.from as QuoteStatus]?.title ?? event.from} → ${QUOTE_STATUS_META[event.to as QuoteStatus]?.title ?? event.to}`,
+    description: event.reason,
+    timestamp: event.timestamp,
+    author: event.user,
+    variant: QUOTE_STATUS_META[event.to as QuoteStatus]?.variant,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,7 +64,13 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
         }}
         description={vehicle ? getVehicleLabel(vehicle) : "Veículo não encontrado"}
         backHref="/orcamentos"
-        actions={<QuoteStatusActions quote={quote} status={status} onStatusChange={setStatus} />}
+        actions={
+          <QuoteStatusActions
+            quote={quote}
+            status={status}
+            onStatusChange={(newStatus) => changeQuoteStatus(quote.id, newStatus)}
+          />
+        }
       />
 
       <div className="grid gap-6 xl:grid-cols-3">
@@ -142,6 +160,18 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
             </CardHeader>
             <CardContent>
               <Timeline entries={events} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Timeline
+                entries={statusHistoryEntries}
+                emptyMessage="Nenhuma alteração manual de status registrada."
+              />
             </CardContent>
           </Card>
         </div>

@@ -1,7 +1,4 @@
-import { notFound } from "next/navigation";
-
-import { ServiceOrderDetailClient } from "@/components/ordens-servico/service-order-detail-client";
-import { getServiceOrderById } from "@/lib/mock-data/service-orders-data";
+import { OrdemServicoDetailView } from "@/components/ordens-servico/ordem-servico-detail-view";
 
 export default async function OrdemServicoDetailPage({
   params,
@@ -9,10 +6,6 @@ export default async function OrdemServicoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const order = getServiceOrderById(id);
-  if (!order) {
-    notFound();
-  }
 
-  return <ServiceOrderDetailClient order={order} />;
+  return <OrdemServicoDetailView id={id} />;
 }

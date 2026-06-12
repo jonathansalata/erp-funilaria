@@ -6,7 +6,7 @@ import { Timeline } from "@/components/shared/timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientById } from "@/lib/mock-data/clients";
 import { getVehicleTimeline, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
-import { INSPECTION_STATUS_META, getInspectionsForVehicle } from "@/lib/mock-data/inspections";
+import { INSPECTION_STATUS_META, type Inspection } from "@/lib/mock-data/inspections";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import { QUOTES, calculateQuoteTotal } from "@/lib/mock-data/quotes-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
@@ -16,11 +16,11 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 type VehicleDetailProps = {
   vehicle: Vehicle;
+  inspections: Inspection[];
 };
 
-export function VehicleDetail({ vehicle }: VehicleDetailProps) {
+export function VehicleDetail({ vehicle, inspections }: VehicleDetailProps) {
   const client = getClientById(vehicle.clientId);
-  const inspections = getInspectionsForVehicle(vehicle.id);
   const quotes = QUOTES.filter((quote) => quote.vehicleId === vehicle.id);
   const serviceOrders = SERVICE_ORDERS.filter((order) => order.vehicleId === vehicle.id);
   const events = getVehicleTimeline(vehicle.id).map(mapEntityEventToTimelineEntry);

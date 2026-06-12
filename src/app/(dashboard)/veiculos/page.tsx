@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 import { VehiclesListTable } from "@/components/veiculos/vehicles-list-table";
 import { Button } from "@/components/ui/button";
-import { VEHICLES } from "@/lib/mock-data/vehicles";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 export default function VeiculosPage() {
+  const vehicles = useErpDataStore((state) => state.vehicles);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -19,7 +23,7 @@ export default function VeiculosPage() {
         </p>
       </div>
 
-      <VehiclesListTable vehicles={VEHICLES} />
+      <VehiclesListTable vehicles={vehicles} />
     </div>
   );
 }

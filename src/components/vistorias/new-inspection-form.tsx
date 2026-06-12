@@ -27,12 +27,14 @@ import type { Attachment } from "@/lib/mock-data/attachments";
 import { INSPECTION_CHECKLIST_TEMPLATE, type DamagePoint } from "@/lib/mock-data/inspections";
 import type { ChecklistItem } from "@/lib/mock-data/service-orders-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ComboboxOption = { value: string; label: string };
 
 export function NewInspectionForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const createInspection = useErpDataStore((state) => state.createInspection);
 
   const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
   const [vehicleId, setVehicleId] = useState("");
@@ -84,6 +86,17 @@ export function NewInspectionForm() {
       toast.error("Informe a quilometragem do veículo.");
       return;
     }
+
+    createInspection({
+      clientId,
+      vehicleId,
+      mileage: Number(mileage),
+      fuelLevel: Number(fuelLevel) || 0,
+      checklist,
+      damagePoints,
+      photos,
+      notes: notes.trim() || undefined,
+    });
 
     toast.success("Vistoria criada com sucesso.");
     router.push("/vistorias");

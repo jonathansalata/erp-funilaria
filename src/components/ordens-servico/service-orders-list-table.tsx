@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -9,6 +10,8 @@ import {
 } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getClientById } from "@/lib/mock-data/clients";
+import type { Quote } from "@/lib/mock-data/quotes-data";
+import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import type { ServiceOrder } from "@/lib/mock-data/service-orders-data";
 import { getTechnicianById } from "@/lib/mock-data/technicians";
@@ -17,10 +20,15 @@ import { formatDate } from "@/lib/utils";
 
 type ServiceOrdersListTableProps = {
   orders: ServiceOrder[];
+  quotes: Quote[];
   initialStatus?: string;
 };
 
-export function ServiceOrdersListTable({ orders, initialStatus }: ServiceOrdersListTableProps) {
+export function ServiceOrdersListTable({
+  orders,
+  quotes,
+  initialStatus,
+}: ServiceOrdersListTableProps) {
   const router = useRouter();
 
   const columns: DataTableColumn<ServiceOrder>[] = [
@@ -56,6 +64,29 @@ export function ServiceOrdersListTable({ orders, initialStatus }: ServiceOrdersL
       sortValue: (order) => getTechnicianById(order.technicianId)?.name ?? "",
     },
     {
+      id: "origin",
+      header: "Origem",
+      cell: (order) => {
+        const quote = order.quoteId ? quotes.find((item) => item.id === order.quoteId) : undefined;
+        if (!quote) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        return (
+          <Link
+            href={`/orcamentos/${quote.id}`}
+            className="text-primary hover:underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {quote.code}
+          </Link>
+        );
+      },
+      sortValue: (order) => {
+        const quote = order.quoteId ? quotes.find((item) => item.id === order.quoteId) : undefined;
+        return quote?.code ?? "";
+      },
+    },
+    {
       id: "status",
       header: "Status",
       cell: (order) => (
@@ -77,11 +108,17 @@ export function ServiceOrdersListTable({ orders, initialStatus }: ServiceOrdersL
     {
       id: "status",
       label: "Status",
-      options: Object.entries(SERVICE_ORDER_STATUS_META).map(([value, meta]) => ({
-        label: meta.title,
-        value,
-      })),
-      predicate: (order, value) => order.status === value,
+      options: [
+        ...Object.entries(SERVICE_ORDER_STATUS_META).map(([value, meta]) => ({
+          label: meta.title,
+          value,
+        })),
+        { label: "Entregas previstas hoje", value: "entregas_hoje" },
+      ],
+      predicate: (order, value) =>
+        value === "entregas_hoje"
+          ? order.dueDate.startsWith(REFERENCE_DATE) && order.status !== "entregue"
+          : order.status === value,
     },
   ];
 

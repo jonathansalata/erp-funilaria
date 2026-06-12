@@ -1,14 +1,7 @@
-import { notFound } from "next/navigation";
-
-import { VehicleDetail } from "@/components/veiculos/vehicle-detail";
-import { getVehicleById } from "@/lib/mock-data/vehicles";
+import { VehicleDetailView } from "@/components/veiculos/vehicle-detail-view";
 
 export default async function VeiculoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const vehicle = getVehicleById(id);
-  if (!vehicle) {
-    notFound();
-  }
 
-  return <VehicleDetail vehicle={vehicle} />;
+  return <VehicleDetailView id={id} />;
 }

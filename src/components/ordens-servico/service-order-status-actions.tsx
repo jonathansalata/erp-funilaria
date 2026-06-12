@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Check, PackageSearch, Play, Truck } from "lucide-react";
 
+import { StatusOverrideAction } from "@/components/shared/status-override-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,8 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import type { ServiceOrder, ServiceOrderStatus } from "@/lib/mock-data/service-orders-data";
 import { TECHNICIANS } from "@/lib/mock-data/technicians";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ServiceOrderStatusActionsProps = {
   order: ServiceOrder;
@@ -38,6 +41,10 @@ type PendingAction = {
   onConfirm: () => void;
 };
 
+const SERVICE_ORDER_STATUS_OPTIONS = Object.entries(SERVICE_ORDER_STATUS_META).map(
+  ([value, meta]) => ({ value, label: meta.title }),
+);
+
 export function ServiceOrderStatusActions({
   order,
   status,
@@ -45,6 +52,7 @@ export function ServiceOrderStatusActions({
   onStatusChange,
   onTechnicianChange,
 }: ServiceOrderStatusActionsProps) {
+  const changeServiceOrderStatus = useErpDataStore((state) => state.changeServiceOrderStatus);
   const [pending, setPending] = useState<PendingAction | null>(null);
 
   function handleConfirm() {
@@ -187,6 +195,14 @@ export function ServiceOrderStatusActions({
     <div className="flex flex-wrap items-center gap-2">
       {technicianSelect}
       {statusActions}
+      <StatusOverrideAction
+        currentStatus={status}
+        options={SERVICE_ORDER_STATUS_OPTIONS}
+        entityLabel={`a OS ${order.code}`}
+        onConfirm={(newStatus, reason) =>
+          changeServiceOrderStatus(order.id, newStatus as ServiceOrderStatus, reason)
+        }
+      />
       {dialog}
     </div>
   );
