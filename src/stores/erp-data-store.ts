@@ -18,10 +18,14 @@ import { canDeleteClient, canDeleteVehicle } from "@/lib/mock-data/crm";
 import { ENTITY_EVENTS, type EntityEvent, type EntityType } from "@/lib/mock-data/entity-events";
 import {
   PAYABLES,
+  PAYMENT_METHOD_LABELS,
   RECEIVABLES,
+  sumPayments,
   type Payable,
   type PayableCategory,
   type PayableStatus,
+  type PaymentEntry,
+  type PaymentEntryInput,
   type Receivable,
   type ReceivableStatus,
 } from "@/lib/mock-data/financeiro";
@@ -49,6 +53,7 @@ import {
 } from "@/lib/mock-data/service-orders-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import { CURRENT_USER_NAME, type StatusChangeEvent } from "@/lib/mock-data/status-history";
+import { formatCurrency } from "@/lib/utils";
 import type { Attachment } from "@/lib/mock-data/attachments";
 import {
   VEHICLES,
@@ -182,7 +187,12 @@ type ErpDataState = {
     id: string,
     input: Partial<Pick<Receivable, "clientId" | "document" | "description" | "value" | "dueDate">>,
   ) => void;
-  receiveReceivable: (id: string, value?: number) => void;
+  receiveReceivable: (id: string, payments: PaymentEntryInput[]) => void;
+  updateReceivablePayment: (
+    receivableId: string,
+    paymentId: string,
+    input: Partial<Pick<PaymentEntry, "method" | "cardBrand" | "installments" | "notes">>,
+  ) => void;
   reverseReceivable: (id: string) => void;
   cancelReceivable: (id: string) => void;
   deleteReceivable: (id: string) => void;
@@ -197,7 +207,7 @@ type ErpDataState = {
     id: string,
     input: Partial<Pick<Payable, "supplier" | "category" | "description" | "value" | "dueDate">>,
   ) => void;
-  payPayable: (id: string) => void;
+  payPayable: (id: string, payments: PaymentEntryInput[]) => void;
   reversePayable: (id: string) => void;
   cancelPayable: (id: string) => void;
   deletePayable: (id: string) => void;
@@ -689,48 +699,223 @@ export const useErpDataStore = create<ErpDataState>()(
           createdAt: now,
           updatedAt: now,
         };
-        set((state) => ({ receivables: [newReceivable, ...state.receivables] }));
+        const event = buildEntityEvent({
+          entityType: "receivable",
+          entityId: newReceivable.id,
+          eventType: "created",
+          title: "Conta a receber criada",
+          description: `${newReceivable.code} — ${formatCurrency(newReceivable.value)}`,
+          metadata: { clientId: input.clientId, receivableId: newReceivable.id },
+        });
+        set((state) => ({
+          receivables: [newReceivable, ...state.receivables],
+          events: [...state.events, event],
+        }));
         return newReceivable;
       },
       updateReceivable: (id, input) =>
-        set((state) => ({
-          receivables: state.receivables.map((item) =>
-            item.id === id ? { ...item, ...input, updatedAt: new Date().toISOString() } : item,
-          ),
-        })),
-      receiveReceivable: (id, value) =>
-        set((state) => ({
-          receivables: state.receivables.map((item) => {
-            if (item.id !== id) return item;
-            const now = new Date().toISOString();
-            const receivedValue =
-              (item.receivedValue ?? 0) + (value ?? item.value - (item.receivedValue ?? 0));
-            const status: ReceivableStatus = receivedValue >= item.value ? "recebido" : "parcial";
-            return { ...item, status, receivedValue, receivedAt: now, updatedAt: now };
-          }),
-        })),
+        set((state) => {
+          const item = state.receivables.find((entry) => entry.id === id);
+          if (!item) return {};
+          const now = new Date().toISOString();
+          const event = buildEntityEvent({
+            entityType: "receivable",
+            entityId: id,
+            eventType: "updated",
+            title: "Conta a receber atualizada",
+            metadata: {
+              previousValue: item.value,
+              newValue: input.value ?? item.value,
+              receivableId: id,
+              clientId: item.clientId,
+            },
+          });
+          return {
+            receivables: state.receivables.map((entry) =>
+              entry.id === id ? { ...entry, ...input, updatedAt: now } : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      receiveReceivable: (id, payments) =>
+        set((state) => {
+          const item = state.receivables.find((entry) => entry.id === id);
+          if (!item || payments.length === 0) return {};
+
+          const now = new Date().toISOString();
+          const newPayments: PaymentEntry[] = payments.map((payment, index) => ({
+            id: `pay-${id}-${Date.now()}-${index}`,
+            method: payment.method,
+            value: payment.value,
+            paidAt: payment.paidAt ?? now,
+            cardBrand: payment.cardBrand,
+            installments: payment.installments,
+            notes: payment.notes,
+            stage: payment.stage,
+            createdBy: CURRENT_USER_NAME,
+          }));
+
+          const amount = sumPayments(newPayments);
+          const previousReceived = item.receivedValue ?? 0;
+          const receivedValue = previousReceived + amount;
+          const status: ReceivableStatus = receivedValue >= item.value ? "recebido" : "parcial";
+
+          const event = buildEntityEvent({
+            entityType: "receivable",
+            entityId: id,
+            eventType: status === "recebido" ? "payment_received" : "payment_partial",
+            title:
+              status === "recebido"
+                ? "Recebimento total registrado"
+                : "Recebimento parcial registrado",
+            description: newPayments
+              .map(
+                (payment) =>
+                  `${PAYMENT_METHOD_LABELS[payment.method]}: ${formatCurrency(payment.value)}`,
+              )
+              .join(", "),
+            metadata: {
+              previousValue: previousReceived,
+              newValue: receivedValue,
+              receivableId: id,
+              clientId: item.clientId,
+            },
+          });
+
+          return {
+            receivables: state.receivables.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    status,
+                    receivedValue,
+                    receivedAt: now,
+                    payments: [...(entry.payments ?? []), ...newPayments],
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      updateReceivablePayment: (receivableId, paymentId, input) =>
+        set((state) => {
+          const item = state.receivables.find((entry) => entry.id === receivableId);
+          const payment = item?.payments?.find((entry) => entry.id === paymentId);
+          if (!item || !payment) return {};
+
+          const now = new Date().toISOString();
+          const auditEvents: EntityEvent[] = [];
+
+          if (input.method && input.method !== payment.method) {
+            auditEvents.push(
+              buildEntityEvent({
+                entityType: "receivable",
+                entityId: receivableId,
+                eventType: "payment_method_changed",
+                title: "Forma de pagamento alterada",
+                description: `${PAYMENT_METHOD_LABELS[payment.method]} → ${PAYMENT_METHOD_LABELS[input.method]}`,
+                metadata: {
+                  previousValue: payment.method,
+                  newValue: input.method,
+                  receivableId,
+                  clientId: item.clientId,
+                },
+              }),
+            );
+          }
+
+          if (input.installments !== undefined && input.installments !== payment.installments) {
+            auditEvents.push(
+              buildEntityEvent({
+                entityType: "receivable",
+                entityId: receivableId,
+                eventType: "installment_changed",
+                title: "Parcelamento alterado",
+                description: `${payment.installments ?? 1}x → ${input.installments}x`,
+                metadata: {
+                  previousValue: payment.installments ?? 1,
+                  newValue: input.installments,
+                  receivableId,
+                  clientId: item.clientId,
+                },
+              }),
+            );
+          }
+
+          return {
+            receivables: state.receivables.map((entry) =>
+              entry.id === receivableId
+                ? {
+                    ...entry,
+                    payments: entry.payments?.map((paymentEntry) =>
+                      paymentEntry.id === paymentId ? { ...paymentEntry, ...input } : paymentEntry,
+                    ),
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, ...auditEvents],
+          };
+        }),
       reverseReceivable: (id) =>
-        set((state) => ({
-          receivables: state.receivables.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  status: "aberto",
-                  receivedValue: undefined,
-                  receivedAt: undefined,
-                  updatedAt: new Date().toISOString(),
-                }
-              : item,
-          ),
-        })),
+        set((state) => {
+          const item = state.receivables.find((entry) => entry.id === id);
+          if (!item) return {};
+          const now = new Date().toISOString();
+          const event = buildEntityEvent({
+            entityType: "receivable",
+            entityId: id,
+            eventType: "payment_reversed",
+            title: "Recebimento estornado",
+            description: `Valor revertido: ${formatCurrency(item.receivedValue ?? 0)}`,
+            metadata: {
+              previousValue: item.receivedValue ?? 0,
+              newValue: 0,
+              receivableId: id,
+              clientId: item.clientId,
+            },
+          });
+          return {
+            receivables: state.receivables.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    status: "aberto",
+                    receivedValue: undefined,
+                    receivedAt: undefined,
+                    payments: undefined,
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       cancelReceivable: (id) =>
-        set((state) => ({
-          receivables: state.receivables.map((item) =>
-            item.id === id
-              ? { ...item, status: "cancelado", updatedAt: new Date().toISOString() }
-              : item,
-          ),
-        })),
+        set((state) => {
+          const item = state.receivables.find((entry) => entry.id === id);
+          if (!item) return {};
+          const now = new Date().toISOString();
+          const event = buildEntityEvent({
+            entityType: "receivable",
+            entityId: id,
+            eventType: "payment_cancelled",
+            title: "Conta a receber cancelada",
+            metadata: {
+              previousValue: item.status,
+              newValue: "cancelado",
+              receivableId: id,
+              clientId: item.clientId,
+            },
+          });
+          return {
+            receivables: state.receivables.map((entry) =>
+              entry.id === id ? { ...entry, status: "cancelado", updatedAt: now } : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       deleteReceivable: (id) =>
         set((state) => ({
           receivables: state.receivables.filter((item) => item.id !== id),
@@ -752,53 +937,137 @@ export const useErpDataStore = create<ErpDataState>()(
           createdAt: now,
           updatedAt: now,
         };
-        set((state) => ({ payables: [newPayable, ...state.payables] }));
+        const event = buildEntityEvent({
+          entityType: "payable",
+          entityId: newPayable.id,
+          eventType: "created",
+          title: "Conta a pagar criada",
+          description: `${newPayable.code} — ${formatCurrency(newPayable.value)}`,
+          metadata: { payableId: newPayable.id },
+        });
+        set((state) => ({
+          payables: [newPayable, ...state.payables],
+          events: [...state.events, event],
+        }));
         return newPayable;
       },
       updatePayable: (id, input) =>
-        set((state) => ({
-          payables: state.payables.map((item) =>
-            item.id === id ? { ...item, ...input, updatedAt: new Date().toISOString() } : item,
-          ),
-        })),
-      payPayable: (id) =>
-        set((state) => ({
-          payables: state.payables.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  status: "pago" as PayableStatus,
-                  paidAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              : item,
-          ),
-        })),
+        set((state) => {
+          const item = state.payables.find((entry) => entry.id === id);
+          if (!item) return {};
+          const now = new Date().toISOString();
+          const event = buildEntityEvent({
+            entityType: "payable",
+            entityId: id,
+            eventType: "updated",
+            title: "Conta a pagar atualizada",
+            metadata: {
+              previousValue: item.value,
+              newValue: input.value ?? item.value,
+              payableId: id,
+            },
+          });
+          return {
+            payables: state.payables.map((entry) =>
+              entry.id === id ? { ...entry, ...input, updatedAt: now } : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      payPayable: (id, payments) =>
+        set((state) => {
+          const item = state.payables.find((entry) => entry.id === id);
+          if (!item || payments.length === 0) return {};
+
+          const now = new Date().toISOString();
+          const newPayments: PaymentEntry[] = payments.map((payment, index) => ({
+            id: `pay-${id}-${Date.now()}-${index}`,
+            method: payment.method,
+            value: payment.value,
+            paidAt: payment.paidAt ?? now,
+            cardBrand: payment.cardBrand,
+            installments: payment.installments,
+            notes: payment.notes,
+            createdBy: CURRENT_USER_NAME,
+          }));
+
+          const event = buildEntityEvent({
+            entityType: "payable",
+            entityId: id,
+            eventType: "payment_received",
+            title: "Pagamento registrado",
+            description: newPayments
+              .map(
+                (payment) =>
+                  `${PAYMENT_METHOD_LABELS[payment.method]}: ${formatCurrency(payment.value)}`,
+              )
+              .join(", "),
+            metadata: { previousValue: item.status, newValue: "pago", payableId: id },
+          });
+
+          return {
+            payables: state.payables.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    status: "pago" as PayableStatus,
+                    paidAt: now,
+                    payments: [...(entry.payments ?? []), ...newPayments],
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       reversePayable: (id) =>
-        set((state) => ({
-          payables: state.payables.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  status: "aberto" as PayableStatus,
-                  paidAt: undefined,
-                  updatedAt: new Date().toISOString(),
-                }
-              : item,
-          ),
-        })),
+        set((state) => {
+          const item = state.payables.find((entry) => entry.id === id);
+          if (!item) return {};
+          const now = new Date().toISOString();
+          const event = buildEntityEvent({
+            entityType: "payable",
+            entityId: id,
+            eventType: "payment_reversed",
+            title: "Pagamento estornado",
+            metadata: { previousValue: "pago", newValue: "aberto", payableId: id },
+          });
+          return {
+            payables: state.payables.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    status: "aberto" as PayableStatus,
+                    paidAt: undefined,
+                    payments: undefined,
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       cancelPayable: (id) =>
-        set((state) => ({
-          payables: state.payables.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  status: "cancelado" as PayableStatus,
-                  updatedAt: new Date().toISOString(),
-                }
-              : item,
-          ),
-        })),
+        set((state) => {
+          const item = state.payables.find((entry) => entry.id === id);
+          if (!item) return {};
+          const now = new Date().toISOString();
+          const event = buildEntityEvent({
+            entityType: "payable",
+            entityId: id,
+            eventType: "payment_cancelled",
+            title: "Conta a pagar cancelada",
+            metadata: { previousValue: item.status, newValue: "cancelado", payableId: id },
+          });
+          return {
+            payables: state.payables.map((entry) =>
+              entry.id === id
+                ? { ...entry, status: "cancelado" as PayableStatus, updatedAt: now }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       deletePayable: (id) =>
         set((state) => ({
           payables: state.payables.filter((item) => item.id !== id),
@@ -1057,11 +1326,12 @@ export const useErpDataStore = create<ErpDataState>()(
     }),
     {
       name: "erp-data-store",
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
-        if (version < 2) {
-          // Fase 2C introduziu novos campos obrigatórios (status, clients, etc.) —
-          // dados persistidos de versões anteriores são descartados em favor dos mocks atuais.
+        if (version < 3) {
+          // Fase 2D introduziu múltiplas formas de pagamento (payments[]) em Contas a
+          // Receber/Pagar — dados persistidos de versões anteriores são descartados em
+          // favor dos mocks atuais.
           return {} as ErpDataState;
         }
         return persistedState as ErpDataState;

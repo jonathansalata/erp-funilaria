@@ -1,5 +1,6 @@
 "use client";
 
+import { FinancialReportsView } from "@/components/relatorios/financial-reports-view";
 import { ReportTable, type ReportColumn } from "@/components/relatorios/report-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -396,6 +397,7 @@ export function ReportsView() {
           <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
           <TabsTrigger value="ordens-servico">Ordens de Serviço</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+          <TabsTrigger value="financeiro-detalhado">Relatórios Financeiros</TabsTrigger>
         </TabsList>
 
         <TabsContent value="clientes" className="pt-4">
@@ -500,6 +502,10 @@ export function ReportsView() {
             searchFn={(row, query) => row.supplier.toLowerCase().includes(query)}
             filename="relatorio-contas-a-pagar.csv"
           />
+        </TabsContent>
+
+        <TabsContent value="financeiro-detalhado" className="pt-4">
+          <FinancialReportsView />
         </TabsContent>
       </Tabs>
     </div>

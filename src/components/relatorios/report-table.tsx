@@ -1,14 +1,19 @@
 "use client";
 
-import { Download } from "lucide-react";
-
 import {
   DataTable,
   type DataTableColumn,
   type DataTableFilter,
 } from "@/components/shared/data-table";
-import { Button } from "@/components/ui/button";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  addPdfTable,
+  createPdfDocument,
+  downloadPdf,
+  printPdf,
+  type PdfTableColumn,
+} from "@/lib/pdf/pdf-utils";
 import { downloadCsv } from "@/lib/utils";
 
 export type ReportColumn<T> = DataTableColumn<T> & {
@@ -26,6 +31,9 @@ type ReportTableProps<T> = {
   searchPlaceholder?: string;
   searchFn?: (row: T, query: string) => boolean;
   filename: string;
+  /** Substitui as colunas do PDF geradas automaticamente (ex.: para aplicar colorização). */
+  pdfColumns?: PdfTableColumn<T>[];
+  pdfOrientation?: "portrait" | "landscape";
 };
 
 export function ReportTable<T>({
@@ -38,11 +46,42 @@ export function ReportTable<T>({
   searchPlaceholder,
   searchFn,
   filename,
+  pdfColumns,
+  pdfOrientation,
 }: ReportTableProps<T>) {
-  function handleExport() {
+  const csvFilename = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  const pdfFilename = filename.replace(/\.csv$/, ".pdf");
+
+  const resolvedPdfColumns: PdfTableColumn<T>[] =
+    pdfColumns ??
+    columns.map((column) => ({
+      header: column.csvHeader,
+      value: (row: T) => String(column.csvValue(row)),
+      align: column.className?.includes("text-right") ? "right" : undefined,
+    }));
+
+  function buildPdfDocument() {
+    const { doc, contentStartY } = createPdfDocument({
+      title,
+      subtitle: description,
+      orientation: pdfOrientation ?? "landscape",
+    });
+    addPdfTable(doc, contentStartY, data, resolvedPdfColumns);
+    return doc;
+  }
+
+  function handleExportPdf() {
+    downloadPdf(buildPdfDocument(), pdfFilename);
+  }
+
+  function handlePrint() {
+    printPdf(buildPdfDocument());
+  }
+
+  function handleExportCsv() {
     const headers = columns.map((column) => column.csvHeader);
     const rows = data.map((row) => columns.map((column) => column.csvValue(row)));
-    downloadCsv(filename, headers, rows);
+    downloadCsv(csvFilename, headers, rows);
   }
 
   return (
@@ -52,10 +91,11 @@ export function ReportTable<T>({
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download />
-          Exportar CSV
-        </Button>
+        <DocumentActions
+          onExportPdf={handleExportPdf}
+          onExportCsv={handleExportCsv}
+          onPrint={handlePrint}
+        />
       </CardHeader>
       <CardContent>
         <DataTable

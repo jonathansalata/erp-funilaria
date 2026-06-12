@@ -1,21 +1,32 @@
 import {
   Ban,
   CheckSquare,
+  CreditCard,
   FilePlus,
+  Layers,
   MessageSquare,
   type LucideIcon,
   Paperclip,
   Pencil,
   PlusCircle,
   RefreshCw,
+  RotateCcw,
   Trash2,
   Wrench,
+  XCircle,
 } from "lucide-react";
 
 import type { StatusVariant } from "@/components/shared/status-badge";
 import type { TimelineEntry } from "@/components/shared/timeline";
 
-export type EntityType = "client" | "vehicle" | "quote" | "service_order" | "inspection";
+export type EntityType =
+  | "client"
+  | "vehicle"
+  | "quote"
+  | "service_order"
+  | "inspection"
+  | "receivable"
+  | "payable";
 
 export type EntityEventType =
   | "created"
@@ -25,6 +36,11 @@ export type EntityEventType =
   | "file_uploaded"
   | "appointment_scheduled"
   | "payment_received"
+  | "payment_partial"
+  | "payment_cancelled"
+  | "payment_reversed"
+  | "payment_method_changed"
+  | "installment_changed"
   | "converted_to_os"
   | "checklist_updated"
   | "inactivated"
@@ -50,6 +66,11 @@ export const EVENT_ICONS: Record<EntityEventType, LucideIcon> = {
   file_uploaded: Paperclip,
   appointment_scheduled: FilePlus,
   payment_received: FilePlus,
+  payment_partial: FilePlus,
+  payment_cancelled: XCircle,
+  payment_reversed: RotateCcw,
+  payment_method_changed: CreditCard,
+  installment_changed: Layers,
   converted_to_os: Wrench,
   checklist_updated: CheckSquare,
   inactivated: Ban,
@@ -64,6 +85,11 @@ export const EVENT_VARIANTS: Record<EntityEventType, StatusVariant> = {
   file_uploaded: "default",
   appointment_scheduled: "primary",
   payment_received: "success",
+  payment_partial: "info",
+  payment_cancelled: "destructive",
+  payment_reversed: "warning",
+  payment_method_changed: "info",
+  installment_changed: "info",
   converted_to_os: "primary",
   checklist_updated: "success",
   inactivated: "warning",
@@ -76,6 +102,8 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   quote: "Orçamento",
   service_order: "Ordem de Serviço",
   inspection: "Vistoria",
+  receivable: "Conta a Receber",
+  payable: "Conta a Pagar",
 };
 
 export const EVENT_TYPE_LABELS: Record<EntityEventType, string> = {
@@ -85,7 +113,12 @@ export const EVENT_TYPE_LABELS: Record<EntityEventType, string> = {
   note_added: "Observação",
   file_uploaded: "Anexo",
   appointment_scheduled: "Agendamento",
-  payment_received: "Pagamento",
+  payment_received: "Pagamento total",
+  payment_partial: "Pagamento parcial",
+  payment_cancelled: "Recebimento cancelado",
+  payment_reversed: "Estorno",
+  payment_method_changed: "Mudança de forma de pagamento",
+  installment_changed: "Mudança de parcelamento",
   converted_to_os: "Conversão em OS",
   checklist_updated: "Checklist",
   inactivated: "Inativação",

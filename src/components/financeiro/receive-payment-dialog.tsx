@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import {
+  getPaymentMethodsTotal,
+  PaymentMethodsEditor,
+} from "@/components/financeiro/payment-methods-editor";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,15 +17,30 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Receivable } from "@/lib/mock-data/financeiro";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  PAYMENT_STAGE_LABELS,
+  getReceivableBalance,
+  type PaymentEntryInput,
+  type PaymentStage,
+  type Receivable,
+} from "@/lib/mock-data/financeiro";
 import { formatCurrency } from "@/lib/utils";
 
 type ReceivePaymentDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   receivable?: Receivable;
-  onConfirm: (value: number) => void;
+  onConfirm: (amount: number, payments: PaymentEntryInput[]) => void;
 };
+
+const STAGES: PaymentStage[] = ["orcamento", "execucao", "entrega", "outro"];
 
 export function ReceivePaymentDialog({
   open,
@@ -29,29 +48,46 @@ export function ReceivePaymentDialog({
   receivable,
   onConfirm,
 }: ReceivePaymentDialogProps) {
-  const [value, setValue] = useState(0);
+  const [amount, setAmount] = useState(0);
+  const [stage, setStage] = useState<PaymentStage>("entrega");
+  const [entries, setEntries] = useState<PaymentEntryInput[]>([]);
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen && receivable) {
-      setValue(receivable.value - (receivable.receivedValue ?? 0));
+      const remaining = getReceivableBalance(receivable);
+      setAmount(remaining);
+      setStage("entrega");
+      setEntries([
+        { method: "pix", value: remaining, paidAt: new Date().toISOString().slice(0, 10) },
+      ]);
     }
     onOpenChange(nextOpen);
   }
 
   if (!receivable) return null;
 
-  const remaining = receivable.value - (receivable.receivedValue ?? 0);
-  const isValid = value > 0 && value <= remaining;
+  const remaining = getReceivableBalance(receivable);
+  const total = getPaymentMethodsTotal(entries);
+  const isAmountValid = amount > 0 && amount <= remaining;
+  const isSumValid = Math.abs(total - amount) < 0.005;
+  const isValid = isAmountValid && isSumValid && entries.length > 0;
+
+  function handleAmountChange(value: number) {
+    setAmount(value);
+  }
 
   function handleConfirm() {
     if (!isValid) return;
-    onConfirm(value);
+    onConfirm(
+      amount,
+      entries.map((entry) => ({ ...entry, stage })),
+    );
     onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Receber pagamento</DialogTitle>
           <DialogDescription>
@@ -59,22 +95,52 @@ export function ReceivePaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="receive-value">Valor recebido</Label>
-          <Input
-            id="receive-value"
-            type="number"
-            min="0"
-            max={remaining}
-            step="0.01"
-            value={value || ""}
-            onChange={(event) => setValue(Number(event.target.value))}
-          />
-          {value > remaining && (
-            <p className="text-destructive text-xs">
-              O valor não pode ser maior que o saldo em aberto.
-            </p>
-          )}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Label htmlFor="receive-amount">Valor a registrar agora</Label>
+              <Input
+                id="receive-amount"
+                type="number"
+                min="0"
+                max={remaining}
+                step="0.01"
+                value={amount || ""}
+                onChange={(event) => handleAmountChange(Number(event.target.value))}
+              />
+              {amount > remaining && (
+                <p className="text-destructive text-xs">
+                  O valor não pode ser maior que o saldo em aberto.
+                </p>
+              )}
+              {amount > 0 && amount < receivable.value - (receivable.receivedValue ?? 0) && (
+                <p className="text-muted-foreground text-xs">
+                  Pagamento parcial — saldo pendente após este recebimento:{" "}
+                  {formatCurrency(remaining - amount)}.
+                </p>
+              )}
+            </div>
+            <div className="flex w-48 flex-col gap-1.5">
+              <Label htmlFor="receive-stage">Etapa da operação</Label>
+              <Select
+                value={stage}
+                onValueChange={(value) => value && setStage(value as PaymentStage)}
+              >
+                <SelectTrigger id="receive-stage">
+                  <SelectValue placeholder="Etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAGES.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {PAYMENT_STAGE_LABELS[item]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <PaymentMethodsEditor entries={entries} onChange={setEntries} targetValue={amount} />
         </div>
 
         <DialogFooter>

@@ -13,8 +13,13 @@ import {
 import { KpiCard } from "@/components/shared/kpi-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress, ProgressLabel } from "@/components/ui/progress";
-import { getManagerialKpis, REVENUE_BY_CATEGORY } from "@/lib/mock-data/dashboard";
+import {
+  getManagerialKpis,
+  getRevenueByPaymentMethodKpis,
+  REVENUE_BY_CATEGORY,
+} from "@/lib/mock-data/dashboard";
 import { MONTHLY_REVENUE_TREND } from "@/lib/mock-data/financeiro";
+import { formatCurrency } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 const MANAGERIAL_ICONS = [
@@ -34,6 +39,7 @@ export function ManagerialTab() {
   const payables = useErpDataStore((state) => state.payables);
 
   const managerialKpis = getManagerialKpis(quotes, serviceOrders, receivables, payables);
+  const revenueByMethod = getRevenueByPaymentMethodKpis(receivables);
   const maxRevenue = Math.max(...MONTHLY_REVENUE_TREND.map((point) => point.receita));
 
   return (
@@ -108,6 +114,33 @@ export function ManagerialTab() {
                 </div>
               </Progress>
             ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Receita por forma de pagamento</CardTitle>
+            <CardDescription>Recebimentos do mês de referência, por forma</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {revenueByMethod.every((item) => item.value === 0) ? (
+              <p className="text-muted-foreground text-sm">
+                Nenhum recebimento registrado no mês de referência.
+              </p>
+            ) : (
+              revenueByMethod
+                .filter((item) => item.value > 0)
+                .map((item) => (
+                  <Progress key={item.method} value={item.percentage} className="gap-1.5">
+                    <div className="flex w-full items-center justify-between">
+                      <ProgressLabel>{item.label}</ProgressLabel>
+                      <span className="text-muted-foreground ml-auto text-sm tabular-nums">
+                        {formatCurrency(item.value)} ({item.percentage}%)
+                      </span>
+                    </div>
+                  </Progress>
+                ))
+            )}
           </CardContent>
         </Card>
       </div>

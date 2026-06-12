@@ -3,6 +3,9 @@ import { getClientById } from "@/lib/mock-data/clients";
 import {
   getDreSummary,
   getReceivablesSummary,
+  getRevenueByPaymentMethod,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
   type Payable,
   type Receivable,
 } from "@/lib/mock-data/financeiro";
@@ -153,6 +156,30 @@ export function getManagerialKpis(
       description: "Resultado líquido do mês",
     },
   ];
+}
+
+export type RevenueByMethod = {
+  method: string;
+  label: string;
+  value: number;
+  percentage: number;
+};
+
+/**
+ * Indicadores de receita por forma de pagamento do Dashboard Gerencial, calculados a partir
+ * dos recebimentos efetivamente registrados em Contas a Receber no mês de referência.
+ */
+export function getRevenueByPaymentMethodKpis(receivables: Receivable[]): RevenueByMethod[] {
+  const monthPrefix = REFERENCE_DATE.slice(0, 7);
+  const byMethod = getRevenueByPaymentMethod(receivables, monthPrefix);
+  const total = Object.values(byMethod).reduce((sum, value) => sum + value, 0);
+
+  return PAYMENT_METHODS.map((method) => ({
+    method,
+    label: PAYMENT_METHOD_LABELS[method],
+    value: byMethod[method],
+    percentage: total > 0 ? Math.round((byMethod[method] / total) * 100) : 0,
+  }));
 }
 
 export type JourneyStageSummary = {

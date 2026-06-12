@@ -10,7 +10,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { getDreSummary } from "@/lib/mock-data/financeiro";
+import {
+  addPdfKeyValueSection,
+  createPdfDocument,
+  downloadPdf,
+  printPdf,
+} from "@/lib/pdf/pdf-utils";
 import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 import { formatCurrency } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -49,13 +56,40 @@ export function DreView() {
     { label: "Lucro líquido", value: dre.lucro, emphasis: true },
   ];
 
+  const periodLabel = `${MONTHS.find((item) => item.value === month)?.label} de ${year}`;
+
+  function buildPdfDocument() {
+    const { doc, contentStartY } = createPdfDocument({
+      title: "DRE Gerencial",
+      subtitle: `Período: ${periodLabel}`,
+    });
+    addPdfKeyValueSection(
+      doc,
+      contentStartY,
+      `Resultado de ${periodLabel}`,
+      rows.map((row) => ({ label: row.label, value: formatCurrency(row.value) })),
+    );
+    return doc;
+  }
+
+  function handleExportPdf() {
+    downloadPdf(buildPdfDocument(), "dre.pdf");
+  }
+
+  function handlePrint() {
+    printPdf(buildPdfDocument());
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold">DRE Gerencial</h1>
-        <p className="text-muted-foreground text-sm">
-          Demonstrativo de resultado simplificado por período.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold">DRE Gerencial</h1>
+          <p className="text-muted-foreground text-sm">
+            Demonstrativo de resultado simplificado por período.
+          </p>
+        </div>
+        <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

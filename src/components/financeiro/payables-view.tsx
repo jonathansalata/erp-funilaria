@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CircleDollarSign, Plus, Wallet } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, History, Plus, Wallet } from "lucide-react";
 
 import {
   PayableFormDialog,
   type PayableFormValues,
 } from "@/components/financeiro/payable-form-dialog";
+import { PayPayableDialog } from "@/components/financeiro/pay-payable-dialog";
+import { PaymentHistoryDialog } from "@/components/financeiro/payment-history-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import {
   DataTable,
   type DataTableColumn,
   type DataTableFilter,
 } from "@/components/shared/data-table";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -21,10 +24,40 @@ import {
   isOverdue,
   PAYABLE_CATEGORY_LABELS,
   PAYABLE_STATUS_META,
+  PAYMENT_METHOD_LABELS,
   type Payable,
 } from "@/lib/mock-data/financeiro";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  addPdfTable,
+  createPdfDocument,
+  downloadPdf,
+  printPdf,
+  PDF_COLORS,
+} from "@/lib/pdf/pdf-utils";
+import { downloadCsv, formatCurrency, formatDate } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
+
+const PAYABLE_PDF_COLUMNS = [
+  { header: "Fornecedor", value: (row: Payable) => row.supplier },
+  { header: "Categoria", value: (row: Payable) => PAYABLE_CATEGORY_LABELS[row.category] },
+  {
+    header: "Valor",
+    value: (row: Payable) => formatCurrency(row.value),
+    align: "right" as const,
+    colorize: () => PDF_COLORS.negative,
+  },
+  { header: "Vencimento", value: (row: Payable) => formatDate(row.dueDate) },
+  {
+    header: "Status",
+    value: (row: Payable) => PAYABLE_STATUS_META[row.status].label,
+    colorize: (row: Payable) => {
+      if (row.status === "pago") return PDF_COLORS.positive;
+      if (row.status === "cancelado") return PDF_COLORS.negative;
+      if (row.status === "aberto") return PDF_COLORS.pending;
+      return undefined;
+    },
+  },
+];
 
 export function PayablesView() {
   const payables = useErpDataStore((state) => state.payables);
@@ -38,6 +71,10 @@ export function PayablesView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingPayable, setEditingPayable] = useState<Payable | undefined>(undefined);
   const [deletingPayable, setDeletingPayable] = useState<Payable | undefined>(undefined);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payingPayable, setPayingPayable] = useState<Payable | undefined>(undefined);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPayable, setHistoryPayable] = useState<Payable | undefined>(undefined);
 
   const summary = getPayablesSummary(payables);
 
@@ -57,6 +94,41 @@ export function PayablesView() {
     } else {
       createPayable(values);
     }
+  }
+
+  function openPay(payable: Payable) {
+    setPayingPayable(payable);
+    setPayOpen(true);
+  }
+
+  function openHistory(payable: Payable) {
+    setHistoryPayable(payable);
+    setHistoryOpen(true);
+  }
+
+  function buildPdfDocument() {
+    const { doc, contentStartY } = createPdfDocument({
+      title: "Relatório de Contas a Pagar",
+      orientation: "landscape",
+    });
+    addPdfTable(doc, contentStartY, payables, PAYABLE_PDF_COLUMNS);
+    return doc;
+  }
+
+  function handleExportPdf() {
+    downloadPdf(buildPdfDocument(), "contas-a-pagar.pdf");
+  }
+
+  function handlePrint() {
+    printPdf(buildPdfDocument());
+  }
+
+  function handleExportCsv() {
+    downloadCsv(
+      "contas-a-pagar.csv",
+      PAYABLE_PDF_COLUMNS.map((column) => column.header),
+      payables.map((row) => PAYABLE_PDF_COLUMNS.map((column) => column.value(row))),
+    );
   }
 
   const columns: DataTableColumn<Payable>[] = [
@@ -100,6 +172,15 @@ export function PayablesView() {
       sortValue: (row) => row.dueDate,
     },
     {
+      id: "paymentMethods",
+      header: "Forma de pagamento",
+      cell: (row) => {
+        const methods = [...new Set((row.payments ?? []).map((payment) => payment.method))];
+        if (methods.length === 0) return "—";
+        return methods.map((method) => PAYMENT_METHOD_LABELS[method]).join(", ");
+      },
+    },
+    {
       id: "status",
       header: "Status",
       cell: (row) => (
@@ -114,13 +195,19 @@ export function PayablesView() {
       cell: (row) => (
         <div className="flex justify-end gap-2" onClick={(event) => event.stopPropagation()}>
           {row.status === "aberto" && (
-            <Button size="sm" variant="outline" onClick={() => payPayable(row.id)}>
+            <Button size="sm" variant="outline" onClick={() => openPay(row)}>
               Pagar
             </Button>
           )}
           {row.status === "pago" && (
             <Button size="sm" variant="outline" onClick={() => reversePayable(row.id)}>
               Estornar
+            </Button>
+          )}
+          {(row.payments?.length ?? 0) > 0 && (
+            <Button size="sm" variant="outline" onClick={() => openHistory(row)}>
+              <History />
+              Histórico
             </Button>
           )}
           {row.status === "aberto" && (
@@ -170,10 +257,17 @@ export function PayablesView() {
             Contas a pagar a fornecedores e despesas operacionais da oficina.
           </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus />
-          Nova conta
-        </Button>
+        <div className="flex flex-wrap items-start gap-2">
+          <DocumentActions
+            onExportPdf={handleExportPdf}
+            onExportCsv={handleExportCsv}
+            onPrint={handlePrint}
+          />
+          <Button onClick={openNew}>
+            <Plus />
+            Nova conta
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -212,6 +306,20 @@ export function PayablesView() {
         onOpenChange={setFormOpen}
         payable={editingPayable}
         onSubmit={handleSubmit}
+      />
+
+      <PayPayableDialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        payable={payingPayable}
+        onConfirm={(payments) => payingPayable && payPayable(payingPayable.id, payments)}
+      />
+
+      <PaymentHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        title={historyPayable?.supplier ?? ""}
+        payments={historyPayable?.payments}
       />
 
       <ConfirmDeleteDialog

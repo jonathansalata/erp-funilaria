@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CircleDollarSign, Plus, Wallet } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, History, Plus, Wallet } from "lucide-react";
 
+import { PaymentHistoryDialog } from "@/components/financeiro/payment-history-dialog";
 import {
   ReceivableFormDialog,
   type ReceivableFormValues,
@@ -14,18 +15,64 @@ import {
   type DataTableColumn,
   type DataTableFilter,
 } from "@/components/shared/data-table";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { getClientById } from "@/lib/mock-data/clients";
 import {
+  getReceivableBalance,
   getReceivablesSummary,
   isOverdue,
+  PAYMENT_METHOD_LABELS,
   RECEIVABLE_STATUS_META,
   type Receivable,
 } from "@/lib/mock-data/financeiro";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  addPdfTable,
+  createPdfDocument,
+  downloadPdf,
+  printPdf,
+  PDF_COLORS,
+} from "@/lib/pdf/pdf-utils";
+import { downloadCsv, formatCurrency, formatDate } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
+
+const RECEIVABLE_PDF_COLUMNS = [
+  {
+    header: "Cliente",
+    value: (row: Receivable) => getClientById(row.clientId)?.name ?? "—",
+  },
+  { header: "Documento", value: (row: Receivable) => row.document },
+  {
+    header: "Valor",
+    value: (row: Receivable) => formatCurrency(row.value),
+    align: "right" as const,
+  },
+  {
+    header: "Recebido",
+    value: (row: Receivable) => formatCurrency(row.receivedValue ?? 0),
+    align: "right" as const,
+    colorize: () => PDF_COLORS.positive,
+  },
+  {
+    header: "Saldo",
+    value: (row: Receivable) => formatCurrency(getReceivableBalance(row)),
+    align: "right" as const,
+    colorize: (row: Receivable) => (getReceivableBalance(row) > 0 ? PDF_COLORS.pending : undefined),
+  },
+  { header: "Vencimento", value: (row: Receivable) => formatDate(row.dueDate) },
+  {
+    header: "Status",
+    value: (row: Receivable) => RECEIVABLE_STATUS_META[row.status].label,
+    colorize: (row: Receivable) => {
+      if (row.status === "recebido") return PDF_COLORS.positive;
+      if (row.status === "cancelado") return PDF_COLORS.negative;
+      if (row.status === "aberto" || row.status === "parcial") return PDF_COLORS.pending;
+      return undefined;
+    },
+  },
+];
 
 export function ReceivablesView() {
   const receivables = useErpDataStore((state) => state.receivables);
@@ -41,6 +88,8 @@ export function ReceivablesView() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receivingReceivable, setReceivingReceivable] = useState<Receivable | undefined>(undefined);
   const [deletingReceivable, setDeletingReceivable] = useState<Receivable | undefined>(undefined);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyReceivable, setHistoryReceivable] = useState<Receivable | undefined>(undefined);
 
   const summary = getReceivablesSummary(receivables);
 
@@ -65,6 +114,36 @@ export function ReceivablesView() {
   function openReceive(receivable: Receivable) {
     setReceivingReceivable(receivable);
     setReceiveOpen(true);
+  }
+
+  function openHistory(receivable: Receivable) {
+    setHistoryReceivable(receivable);
+    setHistoryOpen(true);
+  }
+
+  function buildPdfDocument() {
+    const { doc, contentStartY } = createPdfDocument({
+      title: "Relatório de Contas a Receber",
+      orientation: "landscape",
+    });
+    addPdfTable(doc, contentStartY, receivables, RECEIVABLE_PDF_COLUMNS);
+    return doc;
+  }
+
+  function handleExportPdf() {
+    downloadPdf(buildPdfDocument(), "contas-a-receber.pdf");
+  }
+
+  function handlePrint() {
+    printPdf(buildPdfDocument());
+  }
+
+  function handleExportCsv() {
+    downloadCsv(
+      "contas-a-receber.csv",
+      RECEIVABLE_PDF_COLUMNS.map((column) => column.header),
+      receivables.map((row) => RECEIVABLE_PDF_COLUMNS.map((column) => column.value(row))),
+    );
   }
 
   const columns: DataTableColumn<Receivable>[] = [
@@ -92,6 +171,29 @@ export function ReceivablesView() {
       cell: (row) => formatCurrency(row.value),
       sortValue: (row) => row.value,
       className: "text-right",
+    },
+    {
+      id: "received",
+      header: "Recebido",
+      cell: (row) => formatCurrency(row.receivedValue ?? 0),
+      sortValue: (row) => row.receivedValue ?? 0,
+      className: "text-right",
+    },
+    {
+      id: "balance",
+      header: "Saldo",
+      cell: (row) => formatCurrency(getReceivableBalance(row)),
+      sortValue: (row) => getReceivableBalance(row),
+      className: "text-right",
+    },
+    {
+      id: "paymentMethods",
+      header: "Forma de pagamento",
+      cell: (row) => {
+        const methods = [...new Set((row.payments ?? []).map((payment) => payment.method))];
+        if (methods.length === 0) return "—";
+        return methods.map((method) => PAYMENT_METHOD_LABELS[method]).join(", ");
+      },
     },
     {
       id: "dueDate",
@@ -129,6 +231,12 @@ export function ReceivablesView() {
           {(row.status === "parcial" || row.status === "recebido") && (
             <Button size="sm" variant="outline" onClick={() => reverseReceivable(row.id)}>
               Estornar
+            </Button>
+          )}
+          {(row.payments?.length ?? 0) > 0 && (
+            <Button size="sm" variant="outline" onClick={() => openHistory(row)}>
+              <History />
+              Histórico
             </Button>
           )}
           {row.status === "aberto" && (
@@ -169,10 +277,17 @@ export function ReceivablesView() {
             Títulos a receber de clientes vinculados a orçamentos e ordens de serviço.
           </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus />
-          Novo título
-        </Button>
+        <div className="flex flex-wrap items-start gap-2">
+          <DocumentActions
+            onExportPdf={handleExportPdf}
+            onExportCsv={handleExportCsv}
+            onPrint={handlePrint}
+          />
+          <Button onClick={openNew}>
+            <Plus />
+            Novo título
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -220,9 +335,16 @@ export function ReceivablesView() {
         open={receiveOpen}
         onOpenChange={setReceiveOpen}
         receivable={receivingReceivable}
-        onConfirm={(value) =>
-          receivingReceivable && receiveReceivable(receivingReceivable.id, value)
+        onConfirm={(_amount, payments) =>
+          receivingReceivable && receiveReceivable(receivingReceivable.id, payments)
         }
+      />
+
+      <PaymentHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        title={historyReceivable?.document ?? ""}
+        payments={historyReceivable?.payments}
       />
 
       <ConfirmDeleteDialog

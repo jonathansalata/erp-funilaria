@@ -9,6 +9,76 @@ import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 
 export type ReceivableStatus = "aberto" | "parcial" | "recebido" | "cancelado";
 
+/**
+ * Formas de pagamento suportadas. Estrutura parametrizada — preparada para futura
+ * configuração administrativa (ex.: habilitar/desabilitar formas por unidade).
+ */
+export type PaymentMethod =
+  | "pix"
+  | "dinheiro"
+  | "cartao_debito"
+  | "cartao_credito"
+  | "transferencia"
+  | "boleto"
+  | "cheque"
+  | "outros";
+
+export const PAYMENT_METHODS: PaymentMethod[] = [
+  "pix",
+  "dinheiro",
+  "cartao_debito",
+  "cartao_credito",
+  "transferencia",
+  "boleto",
+  "cheque",
+  "outros",
+];
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  pix: "PIX",
+  dinheiro: "Dinheiro",
+  cartao_debito: "Cartão Débito",
+  cartao_credito: "Cartão Crédito",
+  transferencia: "Transferência",
+  boleto: "Boleto",
+  cheque: "Cheque",
+  outros: "Outros",
+};
+
+/** Etapa da operação em que o recebimento foi registrado. */
+export type PaymentStage = "orcamento" | "execucao" | "entrega" | "outro";
+
+export const PAYMENT_STAGE_LABELS: Record<PaymentStage, string> = {
+  orcamento: "Orçamento",
+  execucao: "Execução",
+  entrega: "Entrega do veículo",
+  outro: "Outro",
+};
+
+/** Um lançamento de pagamento/recebimento em uma forma específica. */
+export type PaymentEntry = {
+  id: string;
+  method: PaymentMethod;
+  value: number;
+  paidAt: string;
+  cardBrand?: string;
+  installments?: number;
+  notes?: string;
+  stage?: PaymentStage;
+  createdBy?: string;
+};
+
+/** Dados informados pelo usuário para registrar um novo lançamento de pagamento/recebimento. */
+export type PaymentEntryInput = {
+  method: PaymentMethod;
+  value: number;
+  paidAt?: string;
+  cardBrand?: string;
+  installments?: number;
+  notes?: string;
+  stage?: PaymentStage;
+};
+
 export type Receivable = {
   id: string;
   code: string;
@@ -22,6 +92,7 @@ export type Receivable = {
   status: ReceivableStatus;
   serviceOrderId?: string;
   quoteId?: string;
+  payments?: PaymentEntry[];
   createdAt: string;
   updatedAt: string;
 };
@@ -77,6 +148,16 @@ export const RECEIVABLES: Receivable[] = [
     receivedValue: 1280,
     receivedAt: "2026-06-05T16:00:00-03:00",
     serviceOrderId: "os8",
+    payments: [
+      {
+        id: "pay-rec-003-1",
+        method: "pix",
+        value: 1280,
+        paidAt: "2026-06-05T16:00:00-03:00",
+        stage: "entrega",
+        createdBy: "Carlos Mendes",
+      },
+    ],
     createdAt: "2026-06-09T08:00:00-03:00",
     updatedAt: "2026-06-05T16:00:00-03:00",
   },
@@ -91,6 +172,17 @@ export const RECEIVABLES: Receivable[] = [
     dueDate: "2026-06-03",
     status: "parcial",
     serviceOrderId: "os9",
+    payments: [
+      {
+        id: "pay-rec-004-1",
+        method: "dinheiro",
+        value: 480,
+        paidAt: "2026-06-09T11:00:00-03:00",
+        stage: "orcamento",
+        notes: "Entrada na assinatura do orçamento",
+        createdBy: "Carlos Mendes",
+      },
+    ],
     createdAt: "2026-06-08T09:00:00-03:00",
     updatedAt: "2026-06-09T11:00:00-03:00",
   },
@@ -182,6 +274,18 @@ export const RECEIVABLES: Receivable[] = [
     status: "recebido",
     receivedValue: 1390,
     receivedAt: "2026-06-02T15:00:00-03:00",
+    payments: [
+      {
+        id: "pay-rec-011-1",
+        method: "cartao_credito",
+        value: 1390,
+        paidAt: "2026-06-02T15:00:00-03:00",
+        cardBrand: "Visa",
+        installments: 3,
+        stage: "entrega",
+        createdBy: "Carlos Mendes",
+      },
+    ],
     createdAt: "2026-05-28T10:00:00-03:00",
     updatedAt: "2026-06-02T15:00:00-03:00",
   },
@@ -237,6 +341,7 @@ export type Payable = {
   dueDate: string;
   paidAt?: string;
   status: PayableStatus;
+  payments?: PaymentEntry[];
   createdAt: string;
   updatedAt: string;
 };
@@ -264,6 +369,15 @@ export const PAYABLES: Payable[] = [
     dueDate: "2026-06-05",
     status: "pago",
     paidAt: "2026-06-05T09:00:00-03:00",
+    payments: [
+      {
+        id: "pay-pag-002-1",
+        method: "transferencia",
+        value: 18500,
+        paidAt: "2026-06-05T09:00:00-03:00",
+        createdBy: "Carlos Mendes",
+      },
+    ],
     createdAt: "2026-05-30T10:00:00-03:00",
     updatedAt: "2026-06-05T09:00:00-03:00",
   },
@@ -277,6 +391,15 @@ export const PAYABLES: Payable[] = [
     dueDate: "2026-06-10",
     status: "pago",
     paidAt: "2026-06-09T14:00:00-03:00",
+    payments: [
+      {
+        id: "pay-pag-003-1",
+        method: "boleto",
+        value: 7800,
+        paidAt: "2026-06-09T14:00:00-03:00",
+        createdBy: "Carlos Mendes",
+      },
+    ],
     createdAt: "2026-06-01T10:00:00-03:00",
     updatedAt: "2026-06-09T14:00:00-03:00",
   },
@@ -378,6 +501,42 @@ export function isOverdue(dueDate: string, status: string, openStatus: string): 
   return status === openStatus && dueDate < REFERENCE_DATE;
 }
 
+/** Soma o valor de uma lista de lançamentos de pagamento. */
+export function sumPayments(payments?: PaymentEntry[]): number {
+  return (payments ?? []).reduce((sum, payment) => sum + payment.value, 0);
+}
+
+/** Saldo pendente de uma conta a receber (valor total - valor já recebido). */
+export function getReceivableBalance(receivable: Receivable): number {
+  return Math.max(0, receivable.value - (receivable.receivedValue ?? 0));
+}
+
+/** Saldo pendente de uma conta a pagar (valor total - valor já pago). */
+export function getPayableBalance(payable: Payable): number {
+  const paid = sumPayments(payable.payments) || (payable.status === "pago" ? payable.value : 0);
+  return Math.max(0, payable.value - paid);
+}
+
+/** Soma a receita recebida agrupada por forma de pagamento, opcionalmente filtrando por mês (YYYY-MM). */
+export function getRevenueByPaymentMethod(
+  receivables: Receivable[],
+  monthPrefix?: string,
+): Record<PaymentMethod, number> {
+  const result = PAYMENT_METHODS.reduce(
+    (acc, method) => ({ ...acc, [method]: 0 }),
+    {} as Record<PaymentMethod, number>,
+  );
+
+  for (const receivable of receivables) {
+    for (const payment of receivable.payments ?? []) {
+      if (monthPrefix && !payment.paidAt.startsWith(monthPrefix)) continue;
+      result[payment.method] += payment.value;
+    }
+  }
+
+  return result;
+}
+
 export type FinancialSummaryCard = {
   title: string;
   value: string;
@@ -433,6 +592,13 @@ export type CashFlowEntry = {
   outflow: number;
   dailyBalance: number;
   accumulatedBalance: number;
+  inflowByMethod: Partial<Record<PaymentMethod, number>>;
+};
+
+type CashFlowAccumulator = {
+  inflow: number;
+  outflow: number;
+  inflowByMethod: Partial<Record<PaymentMethod, number>>;
 };
 
 /** Gera o fluxo de caixa diário a partir dos lançamentos de Contas a Receber/Pagar. */
@@ -441,33 +607,49 @@ export function getCashFlowEntries(
   payables: Payable[],
   initialBalance = 0,
 ): CashFlowEntry[] {
-  const byDate = new Map<string, { inflow: number; outflow: number }>();
+  const byDate = new Map<string, CashFlowAccumulator>();
+
+  const getEntry = (date: string): CashFlowAccumulator => {
+    const entry = byDate.get(date) ?? { inflow: 0, outflow: 0, inflowByMethod: {} };
+    byDate.set(date, entry);
+    return entry;
+  };
 
   for (const receivable of receivables) {
     if (receivable.status === "cancelado") continue;
+
+    if (receivable.payments && receivable.payments.length > 0) {
+      for (const payment of receivable.payments) {
+        const date = payment.paidAt.slice(0, 10);
+        const entry = getEntry(date);
+        entry.inflow += payment.value;
+        entry.inflowByMethod[payment.method] =
+          (entry.inflowByMethod[payment.method] ?? 0) + payment.value;
+      }
+      continue;
+    }
+
     const date = receivable.receivedAt?.slice(0, 10) ?? receivable.dueDate;
     const amount = receivable.receivedValue ?? receivable.value;
-    const entry = byDate.get(date) ?? { inflow: 0, outflow: 0 };
+    const entry = getEntry(date);
     entry.inflow += amount;
-    byDate.set(date, entry);
   }
 
   for (const payable of payables) {
     if (payable.status === "cancelado") continue;
     const date = payable.paidAt?.slice(0, 10) ?? payable.dueDate;
-    const entry = byDate.get(date) ?? { inflow: 0, outflow: 0 };
+    const entry = getEntry(date);
     entry.outflow += payable.value;
-    byDate.set(date, entry);
   }
 
   const dates = [...byDate.keys()].sort();
   let accumulated = initialBalance;
 
   return dates.map((date) => {
-    const { inflow, outflow } = byDate.get(date)!;
+    const { inflow, outflow, inflowByMethod } = byDate.get(date)!;
     const dailyBalance = inflow - outflow;
     accumulated += dailyBalance;
-    return { date, inflow, outflow, dailyBalance, accumulatedBalance: accumulated };
+    return { date, inflow, outflow, dailyBalance, accumulatedBalance: accumulated, inflowByMethod };
   });
 }
 

@@ -52,7 +52,9 @@
       "Bash(cd \"c:\\\\Users\\\\Jonathan\\\\Desktop\\\\ERP-Funilaria-11-06-2026\\\\\" && git rev-parse --short HEAD && git log -1 --format=%cI)",
       "Read(//c/Users/Jonathan/Desktop/**)",
       "Bash(grep -o \"Atualizado em.\\\\{0,30\\\\}\" .next/server/app/clientes.html)",
-      "Bash(grep -o \"Atualizado em.\\\\{0,25\\\\}\\\\|Commit.\\\\{0,15\\\\}\\\\|0.1.0\")"
+      "Bash(grep -o \"Atualizado em.\\\\{0,25\\\\}\\\\|Commit.\\\\{0,15\\\\}\\\\|0.1.0\")",
+      "Bash(npm view *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/relatorios)"
     ]
   }
 }
