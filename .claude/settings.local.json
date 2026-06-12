@@ -59,7 +59,13 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/configuracoes)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/usuarios)",
       "Bash(curl -s http://localhost:3000/configuracoes)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(env -u NEXT_PUBLIC_SUPABASE_URL -u NEXT_PUBLIC_SUPABASE_ANON_KEY -u SUPABASE_SERVICE_ROLE_KEY npx next start --port 3001)",
+      "Bash(disown)",
+      "Bash(taskkill //F //PID 22184)",
+      "Bash(awk '{print $5}')",
+      "Bash(taskkill //F //PID 21896)",
+      "Bash(taskkill //F //PID 18092)"
     ]
   }
 }
