@@ -6,6 +6,7 @@
 
 ## Changelog
 
+- **v1.2** — Revisão de UX/Navegação e arquitetura operacional específica de funilaria, realizada como **Fase 0.5 (Design System e Layout Base)**, antes do início da Fase 1. Principais mudanças: módulo de **Vistoria** (`vehicle_inspections` + itens de checklist polimórficos), controle de **jornada do veículo no pátio** (`vehicle_shop_visits` + taxonomia `vehicle_journey_stage`), **pipelines visuais (Kanban)** para Orçamentos e Ordens de Serviço, **Dashboard segmentado** em visão Operacional (rotina diária) e Gerencial (KPIs/financeiro), **espelhamento de `entity_events`** para timeline completa do veículo (cross-entidade), e reorganização da navegação (sidebar) em grupos por frequência de uso. A fundação visual (sidebar, header, breadcrumbs, dashboards, pipelines, temas claro/escuro) foi implementada nesta fase. Detalhes nas seções 4.6, 7.4.1, 7.4.2, 7.11, 9.1 e 11 (Fase 0.5 e Fase 5.5).
 - **v1.1** — Revisão técnica solicitada antes da Fase 0. Principais mudanças: tabela `organizations` real (multi-tenant desde o início), claims customizados no JWT, numeração amigável (`document_sequences`), timeline de eventos (`entity_events`), notificações internas, auditoria financeira imutável com hash-chain (`financial_audit_logs`), tabela genérica de arquivos (`file_metadata`), stubs de integração (WhatsApp, NF-e/NFS-e, gateways de pagamento), estratégia de views materializadas/particionamento e dimensão `scope` no RBAC. Detalhes na seção 14.
 - **v1.0** — Proposta inicial.
 
@@ -128,14 +129,20 @@ erp-funilaria/
 │   │   │   ├── veiculos/
 │   │   │   │   ├── page.tsx
 │   │   │   │   └── [id]/
+│   │   │   ├── vistorias/                # Módulo de Vistoria (seção 7.4.1)
+│   │   │   │   ├── page.tsx              # Lista de vistorias
+│   │   │   │   ├── novo/                 # Nova vistoria (vehicle_id/client_id pré-preenchidos)
+│   │   │   │   └── [id]/                 # Detalhe/edição + geração de orçamento
+│   │   │   ├── patio/                    # Jornada do veículo / Pátio (seção 7.4.2)
+│   │   │   │   └── page.tsx              # Board por current_stage (vehicle_shop_visits)
 │   │   │   ├── agenda/
 │   │   │   │   └── page.tsx
 │   │   │   ├── orcamentos/
-│   │   │   │   ├── page.tsx
+│   │   │   │   ├── page.tsx              # Pipeline (Kanban) + Lista — toggle (seção 4.6)
 │   │   │   │   ├── novo/
 │   │   │   │   └── [id]/
 │   │   │   ├── ordens-servico/
-│   │   │   │   ├── page.tsx
+│   │   │   │   ├── page.tsx              # Pipeline (Kanban) + Lista — toggle (seção 4.6)
 │   │   │   │   └── [id]/
 │   │   │   ├── financeiro/
 │   │   │   │   ├── contas-a-receber/
@@ -173,15 +180,20 @@ erp-funilaria/
 │   │   └── globals.css
 │   ├── components/
 │   │   ├── ui/                           # Shadcn primitives
-│   │   ├── layout/                       # Sidebar, Topbar, Breadcrumbs
-│   │   ├── shared/                       # DataTable, ComboboxAsync, FileUpload, EmptyState
+│   │   ├── layout/                       # Sidebar, Header/Topbar, Breadcrumbs, Nav (seção 4.6)
+│   │   ├── shared/                       # DataTable, ComboboxAsync, FileUpload, EmptyState,
+│   │   │                                 # KanbanBoard, KpiCard, StatusBadge, EntityHeader,
+│   │   │                                 # TimelinePanel, ItemsEditor (seções 4.4 e 4.6)
 │   │   ├── forms/                        # Form fields reutilizáveis
 │   │   └── modules/                      # Componentes específicos por módulo
 │   │       ├── clientes/
 │   │       ├── veiculos/
+│   │       ├── vistorias/                # Diagrama de avarias, checklist de vistoria
+│   │       ├── patio/                    # Board de jornada do veículo
 │   │       ├── agenda/
-│   │       ├── orcamentos/
-│   │       ├── ordens-servico/
+│   │       ├── orcamentos/               # Inclui Pipeline (Kanban) de orçamentos
+│   │       ├── ordens-servico/           # Inclui Pipeline (Kanban) de OS
+│   │       ├── dashboard/                # Painéis Operacional e Gerencial
 │   │       ├── financeiro/
 │   │       ├── relatorios/
 │   │       ├── usuarios/
@@ -199,6 +211,7 @@ erp-funilaria/
 │   │   ├── validations/                  # Zod schemas por entidade
 │   │   ├── utils/
 │   │   └── constants/                    # módulos, ações, enums espelhados do DB
+│   │                                     # navigation.ts: estrutura da sidebar por grupos (seção 4.6)
 │   ├── hooks/
 │   │   ├── queries/                      # useClientes, useVeiculos, useOrcamentos...
 │   │   └── mutations/
@@ -251,23 +264,73 @@ erp-funilaria/
 
 ### 4.4 Componentes-chave reutilizáveis
 
-| Componente                    | Função                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| `DataTable`                   | Tabela genérica (TanStack Table) com paginação, ordenação, filtros, exportação |
-| `ComboboxAsync`               | Select com busca assíncrona (clientes, veículos, serviços, peças)              |
-| `MultiSelectTags`             | Seleção múltipla de categorias/serviços com criação inline                     |
-| `QuickCreateDialog`           | Modal de "cadastro rápido" para categorias/serviços/peças sem sair da tela     |
-| `FileUploadZone`              | Upload para Supabase Storage (fotos, documentos, anexos) com preview           |
-| `StatusBadge`                 | Badge padronizado de status (cores via taxonomia)                              |
-| `PermissionGate`              | Componente que oculta/desabilita ações conforme RBAC                           |
-| `AuditTrailDrawer`            | Painel lateral com histórico de alterações de um registro                      |
-| `MoneyInput` / `MoneyDisplay` | Formatação monetária BRL                                                       |
+| Componente                    | Função                                                                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DataTable`                   | Tabela genérica (TanStack Table) com paginação, ordenação, filtros, exportação                                                                               |
+| `ComboboxAsync`               | Select com busca assíncrona (clientes, veículos, serviços, peças)                                                                                            |
+| `MultiSelectTags`             | Seleção múltipla de categorias/serviços com criação inline                                                                                                   |
+| `QuickCreateDialog`           | Modal de "cadastro rápido" para categorias/serviços/peças sem sair da tela                                                                                   |
+| `FileUploadZone`              | Upload para Supabase Storage (fotos, documentos, anexos) com preview                                                                                         |
+| `StatusBadge`                 | Badge padronizado de status (cores via taxonomia)                                                                                                            |
+| `PermissionGate`              | Componente que oculta/desabilita ações conforme RBAC                                                                                                         |
+| `AuditTrailDrawer`            | Painel lateral com histórico de alterações de um registro                                                                                                    |
+| `MoneyInput` / `MoneyDisplay` | Formatação monetária BRL                                                                                                                                     |
+| `KanbanBoard`                 | Board genérico orientado a `status_id` (colunas = `config_categories` de um `type` configurável); usado em Pipeline de Orçamentos e Pipeline de OS (ver 4.6) |
+| `KpiCard`                     | Card compacto de indicador (valor + variação/sparkline) usado nos Dashboards                                                                                 |
+| `EntityHeader`                | Cabeçalho padrão de telas de detalhe (número do documento, `StatusBadge`, ações)                                                                             |
+| `TimelinePanel`               | Renderiza `entity_events` em formato de linha do tempo vertical (ver 7.11)                                                                                   |
+| `ItemsEditor`                 | Tabela editável de itens (`quote_items`/`service_order_items`) com cálculo automático de totais                                                              |
 
 ### 4.5 Camada de permissões no frontend
 
 - Hook `usePermissions()` carrega o "mapa efetivo de permissões" do usuário (resolvido no backend — ver seção 8) uma vez no login e mantém em contexto/Zustand.
 - `<PermissionGate module="financeiro" action="edit">` envolve botões/campos sensíveis.
 - `middleware.ts` bloqueia rotas para usuários sem permissão de `view` no módulo, redirecionando para página "Acesso negado" ou Dashboard.
+
+### 4.6 Navegação, Pipelines e Dashboards (UX — Fase 0.5)
+
+Esta seção registra as decisões de UX/navegação tomadas na revisão pré-Fase 1 ("Fase 0.5 — Design System e Layout Base"), que reorganizam a forma como os módulos descritos nas seções 6–9 são apresentados ao usuário, sem alterar o modelo de dados além do já previsto em 7.4.1, 7.4.2 e 7.11.
+
+#### 4.6.1 Sidebar — agrupamento por frequência de uso
+
+A navegação lateral é organizada em 5 grupos, refletindo o fluxo operacional real (Cliente → Veículo → Vistoria → Orçamento → Aprovação → OS → Execução → Entrega → Financeiro), não a ordem alfabética das entidades:
+
+| Grupo           | Itens                                                                               | Frequência de uso                 |
+| --------------- | ----------------------------------------------------------------------------------- | --------------------------------- |
+| **Visão Geral** | Dashboard (Operacional / Gerencial)                                                 | Diária (abertura)                 |
+| **Atendimento** | Pipeline de Orçamentos · Pipeline de Ordens de Serviço · Pátio · Vistorias · Agenda | Constante                         |
+| **Cadastros**   | Clientes & Veículos                                                                 | Frequente                         |
+| **Financeiro**  | Contas a Receber · Contas a Pagar · Fluxo de Caixa · DRE                            | Diária/semanal                    |
+| **Gestão**      | Relatórios · Auditoria · Usuários · Configurações                                   | Esporádica (recolhido por padrão) |
+
+- A estrutura é definida estaticamente em `lib/constants/navigation.ts` (array de grupos → itens, cada item mapeado a um `module` de `permissions`) e filtrada em runtime por `usePermissions()` — **não exige tabela de menu no banco**.
+- O grupo **Gestão** inicia recolhido (estado persistido em Zustand/`localStorage`) para reduzir ruído visual sem remover acesso.
+- "Clientes & Veículos" é um único item de sidebar que aponta para `/clientes`; `/veiculos` continua existindo como rota própria (acessível a partir do detalhe do cliente e de buscas diretas).
+
+#### 4.6.2 Pipelines visuais (Kanban) — Orçamentos e Ordens de Serviço
+
+- `/orcamentos` e `/ordens-servico` abrem, por padrão, em **visão Kanban** (componente `KanbanBoard`), com toggle para a `DataTable` tradicional (Lista) — ambas as visões consultam os mesmos dados, sem rotas adicionais.
+- **Colunas = `config_categories`** do tipo `quote_status` (Orçamentos) ou `service_order_status` (OS) — já configuráveis pelo usuário em Configurações → Status, sem hardcode.
+- **Drag & drop** entre colunas atualiza `status_id` da entidade e dispara `fn_log_entity_event` (mesma trilha usada para a timeline — seção 7.11).
+- Cards exibem: número do documento (`quote_number`/`os_number`), cliente, veículo (placa/modelo), valor total e indicadores visuais de atraso (ex.: orçamento "Enviado" há mais de N dias, OS com `expected_delivery_date` vencida, ou `status = 'Aguardando Peça'` há muito tempo).
+- No Pipeline de OS, é possível agrupar/filtrar por técnico (`assigned_to`) — útil para balanceamento de carga. Quando o papel `Técnico` usar `scope='own'` (seção 8.5), o board filtra automaticamente apenas as OS do usuário autenticado.
+
+#### 4.6.3 Dashboard — Operacional vs. Gerencial
+
+A tela inicial (`/`, dentro do grupo `(dashboard)`) é dividida em duas zonas/abas:
+
+- **Operacional ("Hoje na Oficina")** — prioridade visual máxima, voltada a Atendentes/Técnicos:
+  - Contadores: carros na oficina agora (`vehicle_shop_visits` com `checked_out_at IS NULL`), entradas/saídas previstas hoje, OS aguardando peça.
+  - Lista de "Ações Pendentes" clicáveis: vistorias concluídas sem orçamento gerado, orçamentos "Enviado" sem resposta há mais de N dias, OS com entrega atrasada, parcelas vencendo hoje.
+- **Gerencial ("Visão do Negócio")** — KPIs financeiros e funil de orçamentos (faturamento do mês, ticket médio, OS por status), alimentados por `mv_dashboard_kpis`/`mv_revenue_by_month`/`mv_service_order_funnel` (seção 10.1) — na Fase 0.5 e fases iniciais, exibidos com dados mockados.
+- Visibilidade por papel: `Atendente`/`Técnico` veem a aba Operacional expandida por padrão; `Gerente`/`Administrador` veem ambas, com a Gerencial expandida. A aba Gerencial é controlada por `<PermissionGate module="financeiro" action="view">`.
+- Todos os contadores/cards são clicáveis e levam à visão filtrada correspondente (Pipeline, Pátio, Financeiro) — o Dashboard funciona como roteador de atenção, não apenas vitrine de números.
+
+#### 4.6.4 Pátio (Jornada do Veículo)
+
+- Nova tela `/patio`, dentro do grupo **Atendimento**, exibe um board por `current_stage` (taxonomia `vehicle_journey_stage` — seção 9.1) com um card por `vehicle_shop_visits` em aberto (`checked_out_at IS NULL`).
+- É a visão "chão de fábrica" complementar ao Pipeline de OS: enquanto o Pipeline de OS reflete o status _comercial/de trabalho_ da OS, o Pátio reflete a posição _física_ do veículo na operação (aguardando vistoria, aguardando aprovação, em execução, aguardando peça, pronto para retirada).
+- Detalhes do modelo de dados em 7.4.2.
 
 ---
 
@@ -489,21 +552,21 @@ RLS de `roles`, `permissions`, `role_permissions`, `user_permission_overrides`: 
 
 Tabela genérica para todas as listas padronizadas (ver seção 9 para detalhes de normalização).
 
-| Coluna                             | Tipo                    | Notas                                                                                                                                                                                                                       |
-| ---------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                                 | uuid PK                 |                                                                                                                                                                                                                             |
-| type                               | text NOT NULL           | `service_category`, `part_category`, `financial_category`, `maintenance_category`, `payment_method`, `service_type`, `cancellation_reason`, `appointment_type`, `quote_status`, `service_order_status`, `vehicle_fuel_type` |
-| name                               | text NOT NULL           | nome de exibição (case original preservado)                                                                                                                                                                                 |
-| normalized_name                    | text NOT NULL GENERATED | `fn_normalize_text(name)` — via trigger ou coluna gerada                                                                                                                                                                    |
-| color                              | text                    | usado em `StatusBadge`                                                                                                                                                                                                      |
-| icon                               | text                    | opcional                                                                                                                                                                                                                    |
-| description                        | text                    |                                                                                                                                                                                                                             |
-| is_system                          | boolean DEFAULT false   | impede exclusão de itens essenciais (ex.: status "Cancelado")                                                                                                                                                               |
-| is_active                          | boolean DEFAULT true    |                                                                                                                                                                                                                             |
-| sort_order                         | int DEFAULT 0           |                                                                                                                                                                                                                             |
-| organization_id                    | uuid DEFAULT ...        |                                                                                                                                                                                                                             |
-| created_by                         | uuid FK profiles        |                                                                                                                                                                                                                             |
-| created_at, updated_at, deleted_at |                         |                                                                                                                                                                                                                             |
+| Coluna                             | Tipo                    | Notas                                                                                                                                                                                                                                                |
+| ---------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                                 | uuid PK                 |                                                                                                                                                                                                                                                      |
+| type                               | text NOT NULL           | `service_category`, `part_category`, `financial_category`, `maintenance_category`, `payment_method`, `service_type`, `cancellation_reason`, `appointment_type`, `quote_status`, `service_order_status`, `vehicle_fuel_type`, `vehicle_journey_stage` |
+| name                               | text NOT NULL           | nome de exibição (case original preservado)                                                                                                                                                                                                          |
+| normalized_name                    | text NOT NULL GENERATED | `fn_normalize_text(name)` — via trigger ou coluna gerada                                                                                                                                                                                             |
+| color                              | text                    | usado em `StatusBadge`                                                                                                                                                                                                                               |
+| icon                               | text                    | opcional                                                                                                                                                                                                                                             |
+| description                        | text                    |                                                                                                                                                                                                                                                      |
+| is_system                          | boolean DEFAULT false   | impede exclusão de itens essenciais (ex.: status "Cancelado")                                                                                                                                                                                        |
+| is_active                          | boolean DEFAULT true    |                                                                                                                                                                                                                                                      |
+| sort_order                         | int DEFAULT 0           |                                                                                                                                                                                                                                                      |
+| organization_id                    | uuid DEFAULT ...        |                                                                                                                                                                                                                                                      |
+| created_by                         | uuid FK profiles        |                                                                                                                                                                                                                                                      |
+| created_at, updated_at, deleted_at |                         |                                                                                                                                                                                                                                                      |
 
 Índices/Constraints:
 
@@ -632,6 +695,84 @@ Armazenados em `file_metadata` (seção 7.14) com `entity_type='vehicle'` e `ent
 
 Índices: `idx_appointments_starts_at`, `idx_appointments_assigned_to`, `idx_appointments_client_id`, `idx_appointments_vehicle_id`.
 RLS: módulo `agenda`. Realtime habilitado (publication).
+
+---
+
+### 7.4.1 Vistorias
+
+Etapa do fluxo operacional posicionada **entre Veículo e Orçamento** (`Cliente → Veículo → Vistoria → Orçamento → ...`): registra o estado do veículo na entrada (avarias pré-existentes, km, combustível, observações) — protege a oficina e frequentemente origina o orçamento.
+
+#### `vehicle_inspections`
+
+| Coluna                             | Tipo                                             | Notas                                                                           |
+| ---------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| id                                 | uuid PK                                          |                                                                                 |
+| code                               | text NOT NULL                                    | número amigável (`VIS-000012`), via `fn_next_document_number` (seção 7.10)      |
+| organization_id                    | uuid NOT NULL FK organizations                   |                                                                                 |
+| vehicle_id                         | uuid FK vehicles NOT NULL                        |                                                                                 |
+| client_id                          | uuid FK clients NOT NULL                         |                                                                                 |
+| appointment_id                     | uuid FK appointments NULL                        | se a vistoria se originou de um agendamento                                     |
+| inspector_id                       | uuid FK profiles NULL                            | quem realizou                                                                   |
+| inspection_date                    | timestamptz DEFAULT now()                        |                                                                                 |
+| mileage                            | int                                              | km no momento da vistoria                                                       |
+| fuel_level                         | text                                             | ex.: `1/4`, `1/2`, `3/4`, `cheio`                                               |
+| damage_map                         | jsonb DEFAULT '[]'                               | pontos marcados em diagrama do veículo: `[{x, y, view, severity, description}]` |
+| notes                              | text                                             | observações gerais, itens deixados no veículo                                   |
+| status                             | text CHECK ('draft','completed') DEFAULT 'draft' |                                                                                 |
+| quote_id                           | uuid FK quotes NULL                              | preenchido quando a vistoria origina um orçamento                               |
+| created_by                         | uuid FK profiles                                 |                                                                                 |
+| created_at, updated_at, deleted_at |                                                  |                                                                                 |
+
+Índices: `idx_vehicle_inspections_vehicle_id`, `idx_vehicle_inspections_status`, `UNIQUE (organization_id, code)`.
+RLS: novo módulo `vistorias` (view/create/edit/delete) — adicionado à matriz de permissões (seção 8.1).
+
+#### `inspection_items`
+
+Checklist da vistoria — segue o mesmo padrão polimórfico já usado para `service_order_checklist_items`, generalizado para reutilização futura:
+
+| Coluna        | Tipo                                          | Notas |
+| ------------- | --------------------------------------------- | ----- |
+| id            | uuid PK                                       |       |
+| inspection_id | uuid FK vehicle_inspections ON DELETE CASCADE |       |
+| description   | text NOT NULL                                 |       |
+| is_checked    | boolean DEFAULT false                         |       |
+| sort_order    | int DEFAULT 0                                 |       |
+
+RLS: herdada via `inspection_id` (módulo `vistorias`).
+
+**Fotos**: armazenadas em `file_metadata` (seção 7.14) com `entity_type='inspection'`, `entity_id=vehicle_inspections.id`.
+
+**Conversão para Orçamento**: ação "Gerar Orçamento a partir da Vistoria" cria um `quote` com `vehicle_id`/`client_id` pré-preenchidos e grava `vehicle_inspections.quote_id`. Itens de `quote_items` podem ser sugeridos a partir de `damage_map`/`inspection_items` (mapeamento opcional, fora do escopo do MVP).
+
+---
+
+### 7.4.2 Jornada do Veículo (Pátio)
+
+Controle **físico/operacional** de "onde está o carro agora", complementar (e independente) do status comercial de `quotes`/`service_orders`. Resolve a pergunta "quantos carros estão na oficina agora" sem cruzar múltiplas tabelas.
+
+#### `vehicle_shop_visits`
+
+| Coluna                 | Tipo                                                   | Notas                                                                                                                  |
+| ---------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| id                     | uuid PK                                                |                                                                                                                        |
+| organization_id        | uuid NOT NULL FK organizations                         |                                                                                                                        |
+| vehicle_id             | uuid FK vehicles NOT NULL                              |                                                                                                                        |
+| client_id              | uuid FK clients NOT NULL                               |                                                                                                                        |
+| service_order_id       | uuid FK service_orders NULL                            | pode não existir ainda (ex.: vistoria antes da OS)                                                                     |
+| inspection_id          | uuid FK vehicle_inspections NULL                       |                                                                                                                        |
+| checked_in_at          | timestamptz DEFAULT now()                              | entrada física do veículo                                                                                              |
+| checked_out_at         | timestamptz NULL                                       | saída física (entrega) — `NULL` = visita em aberto                                                                     |
+| current_stage_id       | uuid FK config_categories (type=vehicle_journey_stage) | `aguardando_vistoria`, `em_vistoria`, `aguardando_aprovacao`, `em_execucao`, `aguardando_peca`, `pronto_para_retirada` |
+| parking_spot           | text NULL                                              | opcional, ex.: "vaga 4"                                                                                                |
+| created_at, updated_at |                                                        |                                                                                                                        |
+
+Índices: `idx_vehicle_shop_visits_open` em `(organization_id, checked_out_at) WHERE checked_out_at IS NULL`, `idx_vehicle_shop_visits_vehicle_id`, `idx_vehicle_shop_visits_current_stage`.
+RLS: módulo `ordens_servico` (reaproveitado — não introduz novo módulo de permissão).
+
+- `current_stage_id` é atualizado automaticamente por triggers quando `quotes.status_id`/`service_orders.status_id` mudam (mesma engrenagem de `fn_log_entity_event`), mas também pode ser ajustado manualmente (ex.: "pronto para retirada" não corresponde a um status formal de OS).
+- **Métrica derivada**: tempo de permanência (`checked_out_at - checked_in_at`) — alimenta relatórios de produtividade (Fase 10) sem esforço adicional.
+- Tela `/patio` (seção 4.6.4) exibe um board por `current_stage_id`, com um card por visita em aberto.
+- "Carros na oficina agora" do Dashboard Operacional (seção 4.6.3) = `COUNT(*) WHERE checked_out_at IS NULL`.
 
 ---
 
@@ -999,6 +1140,24 @@ Populada por:
 
 RLS: segue a permissão do módulo correspondente ao `entity_type` (ex.: `entity_type='client'` exige `clientes.view`), validada via `CASE` dentro de `fn_has_permission` ou policy específica `fn_has_permission_for_entity(entity_type, 'view')`.
 
+#### 7.11.1 Espelhamento para a Timeline Completa do Veículo
+
+O PRD exige uma **linha do tempo completa do veículo** — todos os eventos de vistorias, orçamentos, OS e agendamentos relacionados àquele `vehicle_id`, em ordem cronológica única, não apenas eventos gravados diretamente com `entity_type='vehicle'`.
+
+**Decisão**: `fn_log_entity_event()` passa a, **adicionalmente**, gravar uma cópia (espelho) do evento com `entity_type='vehicle', entity_id=<vehicle_id>` sempre que o evento original pertencer a uma entidade que possua `vehicle_id` (`vehicle_inspections`, `quotes`, `service_orders`, `appointments`). O registro espelhado preserva a origem em `metadata`:
+
+```json
+{
+  "source_entity_type": "service_order",
+  "source_entity_id": "<uuid da OS>"
+}
+```
+
+- **Vantagem**: a tela de Veículo consulta apenas `idx_entity_events_lookup (organization_id, entity_type='vehicle', entity_id, created_at DESC)` — já existente, sem joins e compatível com paginação por cursor (seção 10.1).
+- **Custo**: leve duplicação de linhas, aceitável dado que `entity_events` já é particionada mensalmente (seção 10.1).
+- `TimelinePanel` (seção 4.4) exibe um ícone/label de origem (📋 Orçamento, 🔧 OS, 🔍 Vistoria, 📅 Agendamento) para cada item espelhado, com link para o registro original.
+- Implementação prevista junto aos triggers de `quotes`/`service_orders` (Fases 6–7) e `vehicle_inspections` (Fase 5.5) — sem nova tabela.
+
 ### 7.12 Notificações Internas
 
 #### `notifications`
@@ -1167,6 +1326,7 @@ RLS de todas as tabelas desta seção: módulo `financeiro` (pagamentos/fiscal) 
 | dashboard      | ✅   | –      | –    | –      |
 | clientes       | ✅   | ✅     | ✅   | ✅     |
 | veiculos       | ✅   | ✅     | ✅   | ✅     |
+| vistorias      | ✅   | ✅     | ✅   | ✅     |
 | agenda         | ✅   | ✅     | ✅   | ✅     |
 | orcamentos     | ✅   | ✅     | ✅   | ✅     |
 | ordens_servico | ✅   | ✅     | ✅   | ✅     |
@@ -1176,7 +1336,7 @@ RLS de todas as tabelas desta seção: módulo `financeiro` (pagamentos/fiscal) 
 | auditoria      | ✅   | –      | –    | –      |
 | usuarios       | ✅   | ✅     | ✅   | ✅     |
 
-(`dashboard`, `relatorios`, `auditoria` não possuem create/edit/delete — apenas `view`.)
+(`dashboard`, `relatorios`, `auditoria` não possuem create/edit/delete — apenas `view`. O Pátio (`/patio`) não introduz módulo próprio — reutiliza a permissão `ordens_servico`, conforme 7.4.2.)
 
 - **role_permissions**: define o conjunto padrão por papel (ex.: `Atendente` tem `orcamentos.create=true`, `financeiro.edit=false`).
 - **user_permission_overrides**: ajustes pontuais por usuário, conforme exemplo do PRD ("ver Financeiro mas não editar; criar Orçamentos mas não excluir") — mesmo que o papel do usuário não preveja, o override individual prevalece.
@@ -1303,8 +1463,16 @@ Partições mensais são criadas automaticamente por uma rotina (Edge Function a
 - Setup Next.js + TS + Tailwind + Shadcn/UI + ESLint/Prettier.
 - Configuração Supabase (projeto, extensões: `pgcrypto`, `unaccent`, `pg_trgm`).
 - Estrutura de pastas, `lib/supabase/*`, `middleware.ts` base.
-- ThemeProvider (claro/escuro) + layout shell (sidebar/topbar) com dados mockados.
 - CI básico (lint + typecheck) e deploy inicial na Vercel.
+
+### Fase 0.5 — Design System e Layout Base
+
+- Revisão de UX/navegação (seção 4.6): agrupamento da sidebar em 5 grupos (Visão Geral, Atendimento, Cadastros, Financeiro, Gestão).
+- Paleta de cores, tipografia (Josefin Sans) e tokens de tema claro/escuro (ver DECISIONS.md).
+- Implementação da fundação visual, **navegável e sem regras de negócio**: Sidebar definitiva, Header/Topbar, Breadcrumbs, sistema de Cards, sistema de Tabelas (visual), sistema de Formulários (visual).
+- Dashboard Operacional e Dashboard Gerencial (dados mockados).
+- Pipeline de Orçamentos e Pipeline de Ordens de Serviço em visão Kanban (componente `KanbanBoard`, dados mockados).
+- Sem CRUD, sem integração Supabase, sem autenticação — apenas estrutura visual e navegação completa entre rotas.
 
 ### Fase 1 — Multi-tenant, Autenticação e Núcleo RBAC
 
@@ -1345,9 +1513,17 @@ Partições mensais são criadas automaticamente por uma rotina (Edge Function a
 - Migration `notifications` + `notification_preferences` (estrutura pronta; canal `in_app` ativo, `whatsapp`/`email` reservados).
 - Lembretes/alertas via `notifications` in-app; e-mail via Edge Function como stretch.
 
+### Fase 5.5 — Vistoria e Jornada do Veículo (Pátio)
+
+- Migration `vehicle_inspections` + `inspection_items` (checklist), com numeração amigável (`VIS-000012`) via `fn_next_document_number`.
+- Migration `vehicle_shop_visits` + taxonomia `vehicle_journey_stage` (seed dos estágios padrão em `config_categories`).
+- Telas: lista/detalhe de Vistorias (com diagrama de avarias `damage_map` e fotos via `file_metadata`), e board do Pátio (`/patio`) por `current_stage_id`.
+- Ação "Gerar Orçamento a partir da Vistoria" (preenche `vehicle_inspections.quote_id`).
+- Novo módulo de permissão `vistorias` na matriz RBAC (seção 8.1).
+
 ### Fase 6 — Orçamentos
 
-- Migrations `quotes`, `quote_items`, triggers de recálculo de totais, integração com `fn_next_document_number` (`quote_number`), trigger `fn_log_entity_event` para timeline.
+- Migrations `quotes`, `quote_items`, triggers de recálculo de totais, integração com `fn_next_document_number` (`quote_number`), trigger `fn_log_entity_event` para timeline (incluindo espelhamento para `entity_type='vehicle'`, seção 7.11.1) e atualização de `vehicle_shop_visits.current_stage_id`.
 - Formulário completo (multi-itens, multi-categoria/serviço, descontos, impostos).
 - Fluxo de status (elaboração → enviado → aprovado/reprovado/cancelado).
 - Geração de PDF (Edge Function) + impressão + compartilhamento (link/URL assinada).
@@ -1357,8 +1533,9 @@ Partições mensais são criadas automaticamente por uma rotina (Edge Function a
 
 - Migrations `service_orders` (com `os_number`), `service_order_items`, `service_order_checklist_items`, `service_order_status_history`, `service_order_time_logs`.
 - Fotos/anexos via `file_metadata` (`entity_type='service_order'`).
-- Fluxo completo de status com histórico/timeline (`entity_events`).
+- Fluxo completo de status com histórico/timeline (`entity_events`, incluindo espelhamento para `entity_type='vehicle'`, seção 7.11.1) e atualização de `vehicle_shop_visits.current_stage_id`/`checked_out_at` (entrega).
 - Checklist, upload de fotos (antes/depois), apontamento de tempo.
+- Pipeline de OS (Kanban) com dados reais, substituindo os dados mockados da Fase 0.5.
 - PDF da OS.
 
 ### Fase 8 — Financeiro
@@ -1371,6 +1548,7 @@ Partições mensais são criadas automaticamente por uma rotina (Edge Function a
 
 ### Fase 9 — Dashboard, Realtime Avançado e Views Materializadas
 
+- Substituição dos dados mockados do Dashboard Operacional/Gerencial (Fase 0.5) por dados reais.
 - KPIs (clientes, veículos, orçamentos abertos, OS em andamento/concluídas, faturamento, ticket médio, serviços mais vendidos).
 - Migrations `mv_dashboard_kpis`, `mv_revenue_by_month`, `mv_service_order_funnel` + job de refresh (`pg_cron` ou Edge Function agendada).
 - Gráficos (Recharts): receita por período, OS por período/status, fluxo financeiro.

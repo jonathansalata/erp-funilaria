@@ -3,6 +3,80 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Fase 0.5 — Design System e Layout Base (2026-06-11)
+
+Revisão de UX/arquitetura de navegação realizada antes da Fase 1 (ver ARCHITECTURE.md v1.2,
+seção 4.6). Esta fase entrega **apenas a fundação visual**: sidebar, header, breadcrumbs, temas,
+dashboards e pipelines com dados mockados — sem CRUD, sem Supabase e sem autenticação.
+
+### 1. Paleta de cores
+
+Paleta de marca fornecida (hex) mapeada para os tokens semânticos do Shadcn/Tailwind v4 em
+`src/app/globals.css`, mantendo a estrutura de variáveis já gerada na Fase 0 (`@theme inline`):
+
+| Hex       | Papel                                                                       |
+| --------- | --------------------------------------------------------------------------- |
+| `#152F45` | Navy — `primary` (claro), `background`/`sidebar` (escuro)                   |
+| `#3F4955` | Slate — `secondary`/`accent` (escuro), `sidebar-accent` (claro)             |
+| `#6A798C` | Slate claro — `muted-foreground`, `ring`                                    |
+| `#C6BEB4` | Areia/Taupe — `secondary`/`accent` (claro), `primary` (escuro)              |
+| `#F7F5F2` | Off-white — `background` (claro), `foreground`/`sidebar-foreground` (ambos) |
+| `#FFFFFF` | Branco — `card`/`popover` (claro)                                           |
+
+**Tema claro**: fundo `#F7F5F2`, cards `#FFFFFF`, texto/primary `#152F45`, secundário/accent
+`#C6BEB4`. **Tema escuro**: fundo `#0E2233` (variação mais escura do navy, derivada para manter
+contraste AA com texto `#F7F5F2`), cards `#18324B`, primary `#C6BEB4` (inverte para destacar
+ações sobre fundo escuro).
+
+**Sidebar**: usa o tom navy (`#152F45` no claro, `#0B1B29` no escuro) **em ambos os temas** —
+decisão de manter identidade visual consistente da marca independente do tema do conteúdo.
+
+**Cores de status** (`config_categories.color`, usadas em `StatusBadge`/`KanbanBoard`/cards do
+Pátio) recebem tokens semânticos adicionais — não fazem parte da paleta de marca, mas precisam
+harmonizar com ela: `--color-success` (verde acinzentado), `--color-warning` (âmbar), `--color-info`
+(azul-acinzentado), `--color-destructive` (vermelho-tijolo). Cada um com par `-foreground` para
+contraste em claro/escuro.
+
+### 2. Tipografia
+
+Fonte de marca **Josefin Sans** (Google Fonts, via `next/font/google`), substituindo `Geist Sans`
+como `--font-sans`/`--font-heading`. `Geist Mono` é removido (não há necessidade de fonte
+monoespaçada na UI nesta fase).
+
+### 3. Navegação e estrutura de rotas
+
+- Sidebar reorganizada em 5 grupos (Visão Geral, Atendimento, Cadastros, Financeiro, Gestão),
+  conforme ARCHITECTURE.md seção 4.6.1, definidos em `src/lib/constants/navigation.ts`.
+- O grupo "Gestão" inicia recolhido; estado de colapso da sidebar e dos grupos persistido via
+  Zustand (`src/stores/ui-store.ts`) + `localStorage`.
+- `src/app/page.tsx` (placeholder da Fase 0) foi **substituído** por
+  `src/app/(dashboard)/page.tsx` (Dashboard) — a rota `/` passa a ser servida pelo grupo
+  `(dashboard)`, que agora possui `layout.tsx` (shell: sidebar + header + breadcrumbs).
+- Novas rotas placeholder criadas para permitir navegação completa: `/vistorias`, `/patio` e
+  demais módulos do roadmap (clientes, veículos, agenda, financeiro, relatórios, auditoria,
+  usuários, configurações) — todas com conteúdo "Em construção", sem dados/lógica.
+
+### 4. Componentes da fundação visual
+
+- `KanbanBoard`/`KanbanColumn`/`KanbanCard` (genéricos, dados mockados) usados em
+  `/orcamentos` e `/ordens-servico`.
+- `KpiCard`, `StatusBadge` com variantes de cor semânticas.
+- Sistema de tabelas: wrapper visual sobre `components/ui/table.tsx` (sem TanStack Table nesta
+  fase — paginação/ordenação reais ficam para os módulos com dados reais).
+- Sistema de formulários: composição de `components/ui/field.tsx` + `react-hook-form`
+  (estrutura visual, sem submissão/validação contra backend).
+- Dashboard dividido em abas/seções "Operacional" e "Gerencial" (ARCHITECTURE.md seção 4.6.3),
+  ambas com dados mockados em `lib/constants` ou arquivos locais de mock.
+
+### 5. Modelagem de dados (revisão pré-Fase 1)
+
+Itens incorporados ao schema (ver ARCHITECTURE.md seções 7.4.1, 7.4.2, 7.11.1, 9.1 e roadmap
+Fase 5.5) — **ainda não implementados em migrations**, apenas documentados:
+
+- `vehicle_inspections` + `inspection_items` (módulo de Vistoria, novo módulo RBAC `vistorias`).
+- `vehicle_shop_visits` + taxonomia `vehicle_journey_stage` (Pátio/Jornada do Veículo).
+- Espelhamento de `entity_events` para `entity_type='vehicle'` (timeline completa do veículo).
+
 ## Fase 0 — Fundação do Projeto (2026-06-11)
 
 ### 1. Versões mais recentes que a documentação original

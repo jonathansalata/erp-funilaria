@@ -1,0 +1,283 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+
+import { ServiceOrderStatusActions } from "@/components/ordens-servico/service-order-status-actions";
+import { ChecklistCard } from "@/components/shared/checklist-card";
+import { EntityHeader } from "@/components/shared/entity-header";
+import { FileDropzone } from "@/components/shared/file-dropzone";
+import { Timeline } from "@/components/shared/timeline";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { getClientById } from "@/lib/mock-data/clients";
+import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
+import { getQuoteById } from "@/lib/mock-data/quotes-data";
+import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
+import {
+  calculateServiceOrderTotal,
+  type ChecklistItem,
+  type ServiceOrder,
+  type ServiceOrderStatus,
+} from "@/lib/mock-data/service-orders-data";
+import { getTechnicianById } from "@/lib/mock-data/technicians";
+import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+
+type ServiceOrderDetailClientProps = {
+  order: ServiceOrder;
+};
+
+export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProps) {
+  const [status, setStatus] = useState<ServiceOrderStatus>(order.status);
+  const [technicianId, setTechnicianId] = useState(order.technicianId);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(order.checklist);
+  const [photos, setPhotos] = useState(order.photos);
+
+  const client = getClientById(order.clientId);
+  const vehicle = getVehicleById(order.vehicleId);
+  const quote = order.quoteId ? getQuoteById(order.quoteId) : undefined;
+  const total = calculateServiceOrderTotal(order.items);
+  const events = getEventsForEntity("service_order", order.id).map(mapEntityEventToTimelineEntry);
+
+  const photosAntes = photos.filter((photo) => photo.tag === "antes");
+  const photosDepois = photos.filter((photo) => photo.tag === "depois");
+
+  function toggleChecklistItem(id: string, done: boolean) {
+    setChecklist((current) => current.map((item) => (item.id === id ? { ...item, done } : item)));
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <EntityHeader
+        title={client?.name ?? "Cliente não encontrado"}
+        code={order.code}
+        status={{
+          label: SERVICE_ORDER_STATUS_META[status].title,
+          variant: SERVICE_ORDER_STATUS_META[status].variant,
+        }}
+        description={vehicle ? getVehicleLabel(vehicle) : "Veículo não encontrado"}
+        backHref="/ordens-servico"
+        actions={
+          <ServiceOrderStatusActions
+            order={order}
+            status={status}
+            technicianId={technicianId}
+            onStatusChange={setStatus}
+            onTechnicianChange={setTechnicianId}
+          />
+        }
+      />
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="flex flex-col gap-6 xl:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Itens / Serviços</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Qtd.</TableHead>
+                    <TableHead className="text-right">Valor unit.</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.description}</TableCell>
+                      <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(item.quantity * item.unitPrice)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="font-heading flex justify-between gap-8 self-end text-base font-semibold">
+                <span>Total</span>
+                <span>{formatCurrency(total)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <ChecklistCard items={checklist} onItemToggle={toggleChecklistItem} groupByCategory />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Apontamentos de horas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {order.timeLogs.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Nenhum apontamento registrado.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Técnico</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-right">Horas</TableHead>
+                      <TableHead className="text-right">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {order.timeLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium">
+                          {getTechnicianById(log.technicianId)?.name ?? "Não atribuído"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{log.description}</TableCell>
+                        <TableCell className="text-right">{log.hours}h</TableCell>
+                        <TableCell className="text-muted-foreground text-right">
+                          {formatDate(log.date)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Fotos — Antes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FileDropzone
+                files={photosAntes}
+                onFilesChange={(newFiles) =>
+                  setPhotos([...photos.filter((photo) => photo.tag !== "antes"), ...newFiles])
+                }
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Fotos — Depois</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FileDropzone
+                files={photosDepois}
+                onFilesChange={(newFiles) =>
+                  setPhotos([...photos.filter((photo) => photo.tag !== "depois"), ...newFiles])
+                }
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Linha do tempo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Timeline entries={events} />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cliente</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1 text-sm">
+              {client ? (
+                <>
+                  <Link href={`/clientes/${client.id}`} className="font-medium hover:underline">
+                    {client.name}
+                  </Link>
+                  <p className="text-muted-foreground">{client.document}</p>
+                  <p className="text-muted-foreground">{client.phone}</p>
+                  <p className="text-muted-foreground">{client.email}</p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Cliente não encontrado.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Veículo</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1 text-sm">
+              {vehicle ? (
+                <>
+                  <Link href={`/veiculos/${vehicle.id}`} className="font-medium hover:underline">
+                    {getVehicleLabel(vehicle)}
+                  </Link>
+                  <p className="text-muted-foreground">Placa: {vehicle.plate}</p>
+                  <p className="text-muted-foreground">Cor: {vehicle.color}</p>
+                  <p className="text-muted-foreground">
+                    KM: {vehicle.mileage.toLocaleString("pt-BR")}
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Veículo não encontrado.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Origem</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 text-sm">
+              {quote ? (
+                <>
+                  <p className="text-muted-foreground">Gerada a partir do orçamento</p>
+                  <Link href={`/orcamentos/${quote.id}`} className="font-medium hover:underline">
+                    {quote.code}
+                  </Link>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  OS criada diretamente, sem orçamento de origem.
+                </p>
+              )}
+              <div className="flex justify-between pt-2">
+                <span className="text-muted-foreground">Criada em</span>
+                <span>{formatDateTime(order.createdAt)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Atualizada em</span>
+                <span>{formatDateTime(order.updatedAt)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Previsão de entrega</span>
+                <span>{formatDate(order.dueDate)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {order.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Observações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">{order.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

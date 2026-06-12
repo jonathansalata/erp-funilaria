@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npm install *)",
       "Bash(npx shadcn@latest init -y -d --base-color neutral)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(rm -rf .next)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)"
     ]
   }
 }
