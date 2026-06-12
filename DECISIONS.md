@@ -3,6 +3,43 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Fase 2B.5 — Consolidação Operacional, Eliminação de Hardcodes e Fechamento de Lacunas Funcionais (2026-06-12)
+
+Fase de consolidação sobre o ERP operacional mockado (Fase 1), sem Supabase, autenticação, RBAC
+backend ou integrações externas. Principais entregas:
+
+- **Templates de checklist** (`src/lib/mock-data/checklist-templates.ts`): modelo
+  `ChecklistTemplate`/`ChecklistTemplateStage`, templates padrão para Vistoria e Ordem de
+  Serviço. CRUD completo em Configurações > Templates de Checklist
+  (`src/components/configuracoes/checklist-templates-manager.tsx`), com duplicar, ativar/inativar
+  e excluir (bloqueado se for o único template ativo do tipo). Templates podem ser selecionados
+  ao criar novas vistorias/OS, preenchendo o checklist automaticamente.
+- **Edição de orçamento** (`src/components/orcamentos/quote-edit-dialog.tsx` +
+  `updateQuote` em `erp-data-store.ts`): permite editar cliente, veículo, itens, observações e
+  validade enquanto o orçamento estiver em Rascunho, Enviado ou Em negociação. Gera evento de
+  auditoria na linha do tempo.
+- **Edição de ordem de serviço** (`src/components/ordens-servico/service-order-edit-dialog.tsx` +
+  `updateServiceOrder` em `erp-data-store.ts`): permite editar itens, observações e previsão de
+  entrega enquanto a OS não estiver Entregue/Cancelada. Técnico responsável continua sendo
+  alterado via ações de status (`ServiceOrderStatusActions`). Gera evento de auditoria.
+- **PDF e WhatsApp para documentos** (`src/lib/pdf/quote-pdf.ts`,
+  `src/lib/pdf/service-order-pdf.ts`, `src/lib/whatsapp.ts`): telas de Orçamento e OS ganharam
+  botões "Exportar PDF" / "Imprimir" (via infraestrutura compartilhada `src/lib/pdf/pdf-utils.ts`)
+  e "Enviar por WhatsApp" (abre `wa.me` com mensagem padrão usando o WhatsApp/telefone do
+  cliente).
+- **Ficha 360° do cliente e ficha completa do veículo**
+  (`src/lib/pdf/client-pdf.ts`, `src/lib/pdf/vehicle-pdf.ts`): botão "Exportar PDF"/"Imprimir" nas
+  telas de detalhe de Cliente e Veículo. A ficha do veículo passou a exibir indicadores (total de
+  orçamentos, total de OS, valor gasto, última visita) usando `getVehicleSummary` (já existente em
+  `lib/mock-data/crm.ts`).
+- **Ajuda**: novos artigos em `HELP_ARTICLES` (`src/lib/mock-data/settings.ts`) cobrindo edição de
+  orçamento/OS, templates de checklist, exportação de PDF/WhatsApp e as fichas 360° de
+  cliente/veículo.
+
+Pendências conhecidas (não tratadas nesta fase): PDFs dedicados para Vistoria; "equipe"
+responsável na OS (não existe `teamId` no modelo `ServiceOrder`); catálogos de serviço aplicados
+em todos os módulos que ainda usam categorias fixas.
+
 ## Fase 0.5 — Design System e Layout Base (2026-06-11)
 
 Revisão de UX/arquitetura de navegação realizada antes da Fase 1 (ver ARCHITECTURE.md v1.2,

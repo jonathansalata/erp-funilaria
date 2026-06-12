@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { MessageCircle, Pencil } from "lucide-react";
 
+import { QuoteEditDialog } from "@/components/orcamentos/quote-edit-dialog";
 import { QuoteStatusActions } from "@/components/orcamentos/quote-status-actions";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { EntityHeader } from "@/components/shared/entity-header";
 import { FileDropzone } from "@/components/shared/file-dropzone";
 import { Timeline, type TimelineEntry } from "@/components/shared/timeline";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -20,13 +24,16 @@ import { getClientById } from "@/lib/mock-data/clients";
 import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import {
-  QUOTE_CATEGORY_LABELS,
   calculateQuoteTotal,
+  getQuoteItemCategoryLabel,
   type Quote,
   type QuoteStatus,
 } from "@/lib/mock-data/quotes-data";
+import { buildQuotePdf } from "@/lib/pdf/quote-pdf";
+import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { buildDocumentWhatsappMessage, openWhatsapp } from "@/lib/whatsapp";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type QuoteDetailClientProps = {
@@ -39,11 +46,14 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
   const statusHistory = storeQuote?.statusHistory ?? [];
   const changeQuoteStatus = useErpDataStore((state) => state.changeQuoteStatus);
   const [attachments, setAttachments] = useState(quote.attachments);
+  const [editOpen, setEditOpen] = useState(false);
+  const currentQuote = storeQuote ?? quote;
+  const isEditable = status === "rascunho" || status === "enviado" || status === "em_negociacao";
 
   const storeEvents = useErpDataStore((state) => state.events);
-  const client = getClientById(quote.clientId);
-  const vehicle = getVehicleById(quote.vehicleId);
-  const totals = calculateQuoteTotal(quote.items);
+  const client = getClientById(currentQuote.clientId);
+  const vehicle = getVehicleById(currentQuote.vehicleId);
+  const totals = calculateQuoteTotal(currentQuote.items);
   const events = getEventsForEntity(storeEvents, "quote", quote.id).map(
     mapEntityEventToTimelineEntry,
   );
@@ -55,6 +65,23 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
     author: event.user,
     variant: QUOTE_STATUS_META[event.to as QuoteStatus]?.variant,
   }));
+
+  function handleExportPdf() {
+    downloadPdf(buildQuotePdf(currentQuote, client, vehicle), `${currentQuote.code}.pdf`);
+  }
+
+  function handlePrint() {
+    printPdf(buildQuotePdf(currentQuote, client, vehicle));
+  }
+
+  function handleSendWhatsapp() {
+    const message = buildDocumentWhatsappMessage({
+      clientName: client?.name ?? "cliente",
+      code: currentQuote.code,
+      total: totals.total,
+    });
+    openWhatsapp(client?.whatsapp ?? client?.phone, message);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -68,13 +95,28 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
         description={vehicle ? getVehicleLabel(vehicle) : "Veículo não encontrado"}
         backHref="/orcamentos"
         actions={
-          <QuoteStatusActions
-            quote={quote}
-            status={status}
-            onStatusChange={(newStatus) => changeQuoteStatus(quote.id, newStatus)}
-          />
+          <>
+            <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
+            <Button variant="outline" onClick={handleSendWhatsapp}>
+              <MessageCircle />
+              Enviar por WhatsApp
+            </Button>
+            {isEditable && (
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil />
+                Editar orçamento
+              </Button>
+            )}
+            <QuoteStatusActions
+              quote={quote}
+              status={status}
+              onStatusChange={(newStatus) => changeQuoteStatus(quote.id, newStatus)}
+            />
+          </>
         }
       />
+
+      <QuoteEditDialog open={editOpen} onOpenChange={setEditOpen} quote={currentQuote} />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="flex flex-col gap-6 xl:col-span-2">
@@ -95,14 +137,14 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quote.items.map((item) => {
+                  {currentQuote.items.map((item) => {
                     const lineSubtotal = item.quantity * item.unitPrice;
                     const lineDiscount = item.discount ? (lineSubtotal * item.discount) / 100 : 0;
                     return (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.description}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {QUOTE_CATEGORY_LABELS[item.category]}
+                          {getQuoteItemCategoryLabel(item.category)}
                         </TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
                         <TableCell className="text-right">
@@ -143,7 +185,7 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground text-sm">
-                {quote.notes || "Nenhuma observação registrada."}
+                {currentQuote.notes || "Nenhuma observação registrada."}
               </p>
             </CardContent>
           </Card>
@@ -233,16 +275,16 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Criado em</span>
-                <span>{formatDateTime(quote.createdAt)}</span>
+                <span>{formatDateTime(currentQuote.createdAt)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Atualizado em</span>
-                <span>{formatDateTime(quote.updatedAt)}</span>
+                <span>{formatDateTime(currentQuote.updatedAt)}</span>
               </div>
-              {quote.validUntil && (
+              {currentQuote.validUntil && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Válido até</span>
-                  <span>{formatDate(quote.validUntil)}</span>
+                  <span>{formatDate(currentQuote.validUntil)}</span>
                 </div>
               )}
             </CardContent>

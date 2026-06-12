@@ -20,19 +20,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  QUOTE_CATEGORY_LABELS,
+  getQuoteItemCategoryLabel,
   calculateQuoteTotal,
   type QuoteItem,
 } from "@/lib/mock-data/quotes-data";
 import { formatCurrency } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type QuoteItemsEditorProps = {
   items: QuoteItem[];
   onChange: (items: QuoteItem[]) => void;
 };
 
+function createQuoteItemId(): string {
+  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
 export function QuoteItemsEditor({ items, onChange }: QuoteItemsEditorProps) {
   const totals = calculateQuoteTotal(items);
+  const services = useErpDataStore((state) => state.catalogs.services);
+  const activeServices = services.filter((service) => service.active);
 
   function updateItem(id: string, patch: Partial<QuoteItem>) {
     onChange(items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -46,9 +53,9 @@ export function QuoteItemsEditor({ items, onChange }: QuoteItemsEditorProps) {
     onChange([
       ...items,
       {
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: createQuoteItemId(),
         description: "",
-        category: "funilaria",
+        category: activeServices[0]?.name ?? "Outros",
         quantity: 1,
         unitPrice: 0,
       },
@@ -86,19 +93,22 @@ export function QuoteItemsEditor({ items, onChange }: QuoteItemsEditorProps) {
                 <TableCell className="min-w-36">
                   <Select
                     value={item.category}
-                    onValueChange={(value) =>
-                      updateItem(item.id, { category: value as QuoteItem["category"] })
-                    }
+                    onValueChange={(value) => updateItem(item.id, { category: value ?? "" })}
                   >
                     <SelectTrigger size="sm" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(QUOTE_CATEGORY_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
+                      {activeServices.map((service) => (
+                        <SelectItem key={service.id} value={service.name}>
+                          {service.name}
                         </SelectItem>
                       ))}
+                      {!activeServices.some((service) => service.name === item.category) && (
+                        <SelectItem value={item.category}>
+                          {getQuoteItemCategoryLabel(item.category)}
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </TableCell>

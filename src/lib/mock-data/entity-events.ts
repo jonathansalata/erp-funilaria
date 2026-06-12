@@ -3,7 +3,9 @@ import {
   CheckSquare,
   CreditCard,
   FilePlus,
+  KeyRound,
   Layers,
+  LogIn,
   MessageSquare,
   type LucideIcon,
   Paperclip,
@@ -11,6 +13,7 @@ import {
   PlusCircle,
   RefreshCw,
   RotateCcw,
+  ShieldCheck,
   Trash2,
   Wrench,
   XCircle,
@@ -26,7 +29,10 @@ export type EntityType =
   | "service_order"
   | "inspection"
   | "receivable"
-  | "payable";
+  | "payable"
+  | "auth"
+  | "user"
+  | "settings";
 
 export type EntityEventType =
   | "created"
@@ -44,7 +50,10 @@ export type EntityEventType =
   | "converted_to_os"
   | "checklist_updated"
   | "inactivated"
-  | "deleted";
+  | "deleted"
+  | "login"
+  | "password_reset"
+  | "permission_changed";
 
 export type EntityEvent = {
   id: string;
@@ -75,6 +84,9 @@ export const EVENT_ICONS: Record<EntityEventType, LucideIcon> = {
   checklist_updated: CheckSquare,
   inactivated: Ban,
   deleted: Trash2,
+  login: LogIn,
+  password_reset: KeyRound,
+  permission_changed: ShieldCheck,
 };
 
 export const EVENT_VARIANTS: Record<EntityEventType, StatusVariant> = {
@@ -94,6 +106,9 @@ export const EVENT_VARIANTS: Record<EntityEventType, StatusVariant> = {
   checklist_updated: "success",
   inactivated: "warning",
   deleted: "destructive",
+  login: "info",
+  password_reset: "warning",
+  permission_changed: "info",
 };
 
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
@@ -104,6 +119,9 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   inspection: "Vistoria",
   receivable: "Conta a Receber",
   payable: "Conta a Pagar",
+  auth: "Autenticação",
+  user: "Usuário",
+  settings: "Configurações",
 };
 
 export const EVENT_TYPE_LABELS: Record<EntityEventType, string> = {
@@ -123,6 +141,9 @@ export const EVENT_TYPE_LABELS: Record<EntityEventType, string> = {
   checklist_updated: "Checklist",
   inactivated: "Inativação",
   deleted: "Exclusão",
+  login: "Login",
+  password_reset: "Redefinição de senha",
+  permission_changed: "Alteração de permissões",
 };
 
 export const ENTITY_EVENTS: EntityEvent[] = [
@@ -818,6 +839,75 @@ export const ENTITY_EVENTS: EntityEvent[] = [
     metadata: { vehicleId: "vei-004", clientId: "cli-004", quoteId: "q4" },
     createdBy: "Recepção",
     createdAt: "2026-06-10T10:30:00-03:00",
+  },
+
+  // Login (Módulo 02 — Auditoria avançada): registro de acessos ao sistema (IP mockado)
+  {
+    id: "evt-login-001",
+    entityType: "auth",
+    entityId: "usr-001",
+    eventType: "login",
+    title: "Login no sistema",
+    description: "Acesso realizado com sucesso.",
+    metadata: { ip: "192.168.0.10" },
+    createdBy: "Ana Paula Ferreira",
+    createdAt: "2026-06-12T07:45:00-03:00",
+  },
+  {
+    id: "evt-login-002",
+    entityType: "auth",
+    entityId: "usr-003",
+    eventType: "login",
+    title: "Login no sistema",
+    description: "Acesso realizado com sucesso.",
+    metadata: { ip: "192.168.0.22" },
+    createdBy: "Patrícia Souza",
+    createdAt: "2026-06-12T08:05:00-03:00",
+  },
+  {
+    id: "evt-login-003",
+    entityType: "auth",
+    entityId: "usr-002",
+    eventType: "login",
+    title: "Login no sistema",
+    description: "Acesso realizado com sucesso.",
+    metadata: { ip: "192.168.0.15" },
+    createdBy: "Roberto Lima",
+    createdAt: "2026-06-11T18:20:00-03:00",
+  },
+  {
+    id: "evt-login-004",
+    entityType: "auth",
+    entityId: "usr-004",
+    eventType: "login",
+    title: "Login no sistema",
+    description: "Acesso realizado com sucesso.",
+    metadata: { ip: "192.168.0.31" },
+    createdBy: "Carlos Eduardo",
+    createdAt: "2026-06-11T17:30:00-03:00",
+  },
+
+  // Usuários (Módulo 01): exemplo de evento de alteração de permissões
+  {
+    id: "evt-user-001",
+    entityType: "user",
+    entityId: "usr-006",
+    eventType: "permission_changed",
+    title: "Permissões personalizadas atribuídas",
+    description:
+      "Perfil alterado de Operacional para Personalizado; permissões ajustadas para acesso restrito de recepção.",
+    createdBy: "Ana Paula Ferreira",
+    createdAt: "2026-05-20T08:10:00-03:00",
+  },
+  {
+    id: "evt-user-002",
+    entityType: "user",
+    entityId: "usr-006",
+    eventType: "password_reset",
+    title: "Senha redefinida pelo administrador",
+    description: "Senha redefinida e bloqueio aplicado após tentativas de acesso fora do horário.",
+    createdBy: "Ana Paula Ferreira",
+    createdAt: "2026-06-05T09:15:00-03:00",
   },
 ];
 

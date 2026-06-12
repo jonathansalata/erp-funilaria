@@ -54,7 +54,12 @@
       "Bash(grep -o \"Atualizado em.\\\\{0,30\\\\}\" .next/server/app/clientes.html)",
       "Bash(grep -o \"Atualizado em.\\\\{0,25\\\\}\\\\|Commit.\\\\{0,15\\\\}\\\\|0.1.0\")",
       "Bash(npm view *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/relatorios)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/relatorios)",
+      "Bash(grep -o '.\\\\{0,5\\\\}Vers.\\\\{0,80\\\\}\\\\|.\\\\{0,5\\\\}Atualizado.\\\\{0,80\\\\}\\\\|.\\\\{0,5\\\\}Commit.\\\\{0,80\\\\}' /tmp/page.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/configuracoes)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/usuarios)",
+      "Bash(curl -s http://localhost:3000/configuracoes)",
+      "Bash(git stash *)"
     ]
   }
 }

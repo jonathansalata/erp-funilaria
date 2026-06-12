@@ -14,9 +14,9 @@ import type { Quote } from "@/lib/mock-data/quotes-data";
 import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import type { ServiceOrder } from "@/lib/mock-data/service-orders-data";
-import { getTechnicianById } from "@/lib/mock-data/technicians";
 import { getVehicleLabelById } from "@/lib/mock-data/vehicles";
 import { formatDate } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ServiceOrdersListTableProps = {
   orders: ServiceOrder[];
@@ -30,6 +30,9 @@ export function ServiceOrdersListTable({
   initialStatus,
 }: ServiceOrdersListTableProps) {
   const router = useRouter();
+  const technicians = useErpDataStore((state) => state.technicians);
+  const getTechnicianName = (technicianId: string) =>
+    technicians.find((technician) => technician.id === technicianId)?.name;
 
   const columns: DataTableColumn<ServiceOrder>[] = [
     {
@@ -58,10 +61,10 @@ export function ServiceOrdersListTable({
       header: "Técnico",
       cell: (order) => (
         <span className="text-muted-foreground">
-          {getTechnicianById(order.technicianId)?.name ?? "Não atribuído"}
+          {getTechnicianName(order.technicianId) ?? "Não atribuído"}
         </span>
       ),
-      sortValue: (order) => getTechnicianById(order.technicianId)?.name ?? "",
+      sortValue: (order) => getTechnicianName(order.technicianId) ?? "",
     },
     {
       id: "origin",

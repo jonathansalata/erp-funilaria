@@ -1,0 +1,160 @@
+"use client";
+
+import { Plus, Trash2 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  calculateServiceOrderTotal,
+  type ServiceOrderItem,
+} from "@/lib/mock-data/service-orders-data";
+import { formatCurrency } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
+
+type ServiceOrderItemsEditorProps = {
+  items: ServiceOrderItem[];
+  onChange: (items: ServiceOrderItem[]) => void;
+};
+
+function createServiceOrderItemId(): string {
+  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function ServiceOrderItemsEditor({ items, onChange }: ServiceOrderItemsEditorProps) {
+  const total = calculateServiceOrderTotal(items);
+  const services = useErpDataStore((state) => state.catalogs.services);
+  const activeServices = services.filter((service) => service.active);
+
+  function updateItem(id: string, patch: Partial<ServiceOrderItem>) {
+    onChange(items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  function removeItem(id: string) {
+    onChange(items.filter((item) => item.id !== id));
+  }
+
+  function addItem() {
+    onChange([
+      ...items,
+      {
+        id: createServiceOrderItemId(),
+        description: "",
+        category: activeServices[0]?.name ?? "Outros",
+        quantity: 1,
+        unitPrice: 0,
+      },
+    ]);
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Descrição</TableHead>
+            <TableHead>Categoria</TableHead>
+            <TableHead className="text-right">Qtd.</TableHead>
+            <TableHead className="text-right">Valor unit.</TableHead>
+            <TableHead className="text-right">Subtotal</TableHead>
+            <TableHead className="w-10" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow key={item.id}>
+              <TableCell className="min-w-48">
+                <Input
+                  value={item.description}
+                  placeholder="Descrição do item"
+                  onChange={(event) => updateItem(item.id, { description: event.target.value })}
+                />
+              </TableCell>
+              <TableCell className="min-w-36">
+                <Select
+                  value={item.category}
+                  onValueChange={(value) => updateItem(item.id, { category: value ?? "" })}
+                >
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeServices.map((service) => (
+                      <SelectItem key={service.id} value={service.name}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
+                    {!activeServices.some((service) => service.name === item.category) && (
+                      <SelectItem value={item.category}>{item.category}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell className="text-right">
+                <Input
+                  type="number"
+                  min={1}
+                  className="w-20 text-right"
+                  value={item.quantity}
+                  onChange={(event) =>
+                    updateItem(item.id, { quantity: Number(event.target.value) || 0 })
+                  }
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="w-28 text-right"
+                  value={item.unitPrice}
+                  onChange={(event) =>
+                    updateItem(item.id, { unitPrice: Number(event.target.value) || 0 })
+                  }
+                />
+              </TableCell>
+              <TableCell className="text-right font-medium whitespace-nowrap">
+                {formatCurrency(item.quantity * item.unitPrice)}
+              </TableCell>
+              <TableCell>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => removeItem(item.id)}
+                  aria-label="Remover item"
+                >
+                  <Trash2 />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addItem}>
+        <Plus />
+        Adicionar item
+      </Button>
+
+      <div className="font-heading flex justify-between gap-8 self-end text-base font-semibold">
+        <span>Total</span>
+        <span>{formatCurrency(total)}</span>
+      </div>
+    </div>
+  );
+}

@@ -12,7 +12,8 @@ export type QuoteStatus =
 export type QuoteItem = {
   id: string;
   description: string;
-  category: "funilaria" | "pintura" | "pecas" | "estetica" | "outros";
+  /** Categoria do item — nome de um serviço ativo cadastrado em Configurações > Catálogos > Serviços. */
+  category: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -34,13 +35,22 @@ export type Quote = {
   statusHistory?: StatusChangeEvent[];
 };
 
-export const QUOTE_CATEGORY_LABELS: Record<QuoteItem["category"], string> = {
+/**
+ * Rótulos legados para categorias de itens criadas antes da migração para o catálogo
+ * de Serviços (Configurações > Catálogos). Itens novos usam diretamente o nome do
+ * serviço cadastrado como categoria.
+ */
+export const QUOTE_CATEGORY_LABELS: Record<string, string> = {
   funilaria: "Funilaria",
   pintura: "Pintura",
   pecas: "Peças",
   estetica: "Estética",
   outros: "Outros",
 };
+
+export function getQuoteItemCategoryLabel(category: string): string {
+  return QUOTE_CATEGORY_LABELS[category] ?? category;
+}
 
 export const QUOTES: Quote[] = [
   {

@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
     NEXT_PUBLIC_GIT_COMMIT: getGitCommit(),
     NEXT_PUBLIC_BUILD_DATE: getGitCommitDate() || new Date().toISOString(),
+    NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV ?? "development",
   },
 };
 

@@ -21,10 +21,18 @@ import {
 } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CLIENTS } from "@/lib/mock-data/clients";
 import type { Attachment } from "@/lib/mock-data/attachments";
-import { INSPECTION_CHECKLIST_TEMPLATE, type DamagePoint } from "@/lib/mock-data/inspections";
+import { buildChecklistFromTemplate } from "@/lib/mock-data/checklist-templates";
+import type { DamagePoint } from "@/lib/mock-data/inspections";
 import type { ChecklistItem } from "@/lib/mock-data/service-orders-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -35,13 +43,20 @@ export function NewInspectionForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const createInspection = useErpDataStore((state) => state.createInspection);
+  const checklistTemplates = useErpDataStore((state) => state.checklistTemplates);
+  const inspectionTemplates = useMemo(
+    () =>
+      checklistTemplates.filter((template) => template.kind === "inspection" && template.active),
+    [checklistTemplates],
+  );
 
   const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
   const [vehicleId, setVehicleId] = useState("");
   const [mileage, setMileage] = useState("");
   const [fuelLevel, setFuelLevel] = useState("");
+  const [templateId, setTemplateId] = useState(inspectionTemplates[0]?.id ?? "");
   const [checklist, setChecklist] = useState<ChecklistItem[]>(() =>
-    INSPECTION_CHECKLIST_TEMPLATE.map((item, index) => ({ id: `new-c${index + 1}`, ...item })),
+    inspectionTemplates[0] ? buildChecklistFromTemplate(inspectionTemplates[0], "new") : [],
   );
   const [damagePoints, setDamagePoints] = useState<DamagePoint[]>([]);
   const [photos, setPhotos] = useState<Attachment[]>([]);
@@ -71,6 +86,13 @@ export function NewInspectionForm() {
 
   function toggleChecklistItem(id: string, done: boolean) {
     setChecklist((current) => current.map((item) => (item.id === id ? { ...item, done } : item)));
+  }
+
+  function handleTemplateChange(id: string | null) {
+    if (!id) return;
+    setTemplateId(id);
+    const template = inspectionTemplates.find((item) => item.id === id);
+    setChecklist(template ? buildChecklistFromTemplate(template, "new") : []);
   }
 
   function handleSubmit() {
@@ -191,6 +213,29 @@ export function NewInspectionForm() {
               value={fuelLevel}
               onChange={(event) => setFuelLevel(event.target.value)}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Template de vistoria</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-1.5 sm:max-w-sm">
+            <Label htmlFor="inspection-template">Checklist a aplicar</Label>
+            <Select value={templateId} onValueChange={handleTemplateChange}>
+              <SelectTrigger id="inspection-template" className="w-full">
+                <SelectValue placeholder="Selecione um template" />
+              </SelectTrigger>
+              <SelectContent>
+                {inspectionTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

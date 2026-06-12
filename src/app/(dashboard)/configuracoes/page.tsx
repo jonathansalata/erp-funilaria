@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { ConfiguracoesView } from "@/components/configuracoes/configuracoes-view";
 
 export default function ConfiguracoesPage() {
-  return (
-    <PlaceholderPage
-      title="Configurações"
-      description="Taxonomias, formas de pagamento, status, permissões e demais parâmetros da organização."
-    />
-  );
+  return <ConfiguracoesView />;
 }

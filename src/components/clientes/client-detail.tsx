@@ -21,6 +21,7 @@ import { toast } from "sonner";
 
 import { ClientEditDialog } from "@/components/clientes/client-edit-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { EntityHeader } from "@/components/shared/entity-header";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -49,6 +50,8 @@ import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import { calculateQuoteTotal } from "@/lib/mock-data/quotes-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import { calculateServiceOrderTotal } from "@/lib/mock-data/service-orders-data";
+import { buildClientPdf } from "@/lib/pdf/client-pdf";
+import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
 import { JOURNEY_STAGE_META, type Vehicle } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -92,6 +95,18 @@ export function ClientDetail({ client }: ClientDetailProps) {
     return storeVehicles.find((vehicle) => vehicle.id === vehicleId);
   }
 
+  function buildPdfDocument() {
+    return buildClientPdf(client, vehicles, clientQuotes, clientOrders, summary, financialSummary);
+  }
+
+  function handleExportPdf() {
+    downloadPdf(buildPdfDocument(), `${client.code}.pdf`);
+  }
+
+  function handlePrint() {
+    printPdf(buildPdfDocument());
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <EntityHeader
@@ -102,6 +117,7 @@ export function ClientDetail({ client }: ClientDetailProps) {
         backHref="/clientes"
         actions={
           <>
+            <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
             <Button variant="outline" onClick={() => setIsEditOpen(true)}>
               <Pencil />
               Editar

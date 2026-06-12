@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { MessageCircle, Pencil } from "lucide-react";
 
+import { ServiceOrderEditDialog } from "@/components/ordens-servico/service-order-edit-dialog";
 import { ServiceOrderStatusActions } from "@/components/ordens-servico/service-order-status-actions";
 import { ChecklistCard } from "@/components/shared/checklist-card";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { EntityHeader } from "@/components/shared/entity-header";
 import { FileDropzone } from "@/components/shared/file-dropzone";
 import { Timeline, type TimelineEntry } from "@/components/shared/timeline";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -19,6 +23,8 @@ import {
 } from "@/components/ui/table";
 import { getClientById } from "@/lib/mock-data/clients";
 import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
+import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
+import { buildServiceOrderPdf } from "@/lib/pdf/service-order-pdf";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import {
   calculateServiceOrderTotal,
@@ -26,9 +32,9 @@ import {
   type ServiceOrder,
   type ServiceOrderStatus,
 } from "@/lib/mock-data/service-orders-data";
-import { getTechnicianById } from "@/lib/mock-data/technicians";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { buildDocumentWhatsappMessage, openWhatsapp } from "@/lib/whatsapp";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ServiceOrderDetailClientProps = {
@@ -49,11 +55,18 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
   );
   const [checklist, setChecklist] = useState<ChecklistItem[]>(order.checklist);
   const [photos, setPhotos] = useState(order.photos);
+  const [editOpen, setEditOpen] = useState(false);
+  const technicians = useErpDataStore((state) => state.technicians);
+  const getTechnicianName = (id: string) =>
+    technicians.find((technician) => technician.id === id)?.name;
+
+  const currentOrder = storeOrder ?? order;
+  const isEditable = status !== "entregue" && status !== "cancelado";
 
   const storeEvents = useErpDataStore((state) => state.events);
   const client = getClientById(order.clientId);
   const vehicle = getVehicleById(order.vehicleId);
-  const total = calculateServiceOrderTotal(order.items);
+  const total = calculateServiceOrderTotal(currentOrder.items);
   const events = getEventsForEntity(storeEvents, "service_order", order.id).map(
     mapEntityEventToTimelineEntry,
   );
@@ -73,6 +86,23 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
     setChecklist((current) => current.map((item) => (item.id === id ? { ...item, done } : item)));
   }
 
+  function handleExportPdf() {
+    downloadPdf(buildServiceOrderPdf(currentOrder, client, vehicle), `${currentOrder.code}.pdf`);
+  }
+
+  function handlePrint() {
+    printPdf(buildServiceOrderPdf(currentOrder, client, vehicle));
+  }
+
+  function handleSendWhatsapp() {
+    const message = buildDocumentWhatsappMessage({
+      clientName: client?.name ?? "cliente",
+      code: currentOrder.code,
+      total,
+    });
+    openWhatsapp(client?.whatsapp ?? client?.phone, message);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <EntityHeader
@@ -85,17 +115,32 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
         description={vehicle ? getVehicleLabel(vehicle) : "Veículo não encontrado"}
         backHref="/ordens-servico"
         actions={
-          <ServiceOrderStatusActions
-            order={order}
-            status={status}
-            technicianId={technicianId}
-            onStatusChange={(newStatus) => changeServiceOrderStatus(order.id, newStatus)}
-            onTechnicianChange={(newTechnicianId) =>
-              setServiceOrderTechnician(order.id, newTechnicianId)
-            }
-          />
+          <>
+            <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
+            <Button variant="outline" onClick={handleSendWhatsapp}>
+              <MessageCircle />
+              Enviar por WhatsApp
+            </Button>
+            {isEditable && (
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil />
+                Editar OS
+              </Button>
+            )}
+            <ServiceOrderStatusActions
+              order={order}
+              status={status}
+              technicianId={technicianId}
+              onStatusChange={(newStatus) => changeServiceOrderStatus(order.id, newStatus)}
+              onTechnicianChange={(newTechnicianId) =>
+                setServiceOrderTechnician(order.id, newTechnicianId)
+              }
+            />
+          </>
         }
       />
+
+      <ServiceOrderEditDialog open={editOpen} onOpenChange={setEditOpen} order={currentOrder} />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="flex flex-col gap-6 xl:col-span-2">
@@ -115,7 +160,7 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {order.items.map((item) => (
+                  {currentOrder.items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.description}</TableCell>
                       <TableCell className="text-muted-foreground">{item.category}</TableCell>
@@ -159,7 +204,7 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
                     {order.timeLogs.map((log) => (
                       <TableRow key={log.id}>
                         <TableCell className="font-medium">
-                          {getTechnicianById(log.technicianId)?.name ?? "Não atribuído"}
+                          {getTechnicianName(log.technicianId) ?? "Não atribuído"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">{log.description}</TableCell>
                         <TableCell className="text-right">{log.hours}h</TableCell>
@@ -286,26 +331,26 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
               )}
               <div className="flex justify-between pt-2">
                 <span className="text-muted-foreground">Criada em</span>
-                <span>{formatDateTime(order.createdAt)}</span>
+                <span>{formatDateTime(currentOrder.createdAt)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Atualizada em</span>
-                <span>{formatDateTime(order.updatedAt)}</span>
+                <span>{formatDateTime(currentOrder.updatedAt)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Previsão de entrega</span>
-                <span>{formatDate(order.dueDate)}</span>
+                <span>{formatDate(currentOrder.dueDate)}</span>
               </div>
             </CardContent>
           </Card>
 
-          {order.notes && (
+          {currentOrder.notes && (
             <Card>
               <CardHeader>
                 <CardTitle>Observações</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-sm">{order.notes}</p>
+                <p className="text-muted-foreground text-sm">{currentOrder.notes}</p>
               </CardContent>
             </Card>
           )}

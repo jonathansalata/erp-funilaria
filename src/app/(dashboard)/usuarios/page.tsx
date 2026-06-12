@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { UsersView } from "@/components/usuarios/users-view";
 
 export default function UsuariosPage() {
-  return (
-    <PlaceholderPage
-      title="Usuários"
-      description="Usuários da organização, papéis e permissões de acesso."
-    />
-  );
+  return <UsersView />;
 }

@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/select";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import type { ServiceOrder, ServiceOrderStatus } from "@/lib/mock-data/service-orders-data";
-import { TECHNICIANS } from "@/lib/mock-data/technicians";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type ServiceOrderStatusActionsProps = {
@@ -53,6 +52,7 @@ export function ServiceOrderStatusActions({
   onTechnicianChange,
 }: ServiceOrderStatusActionsProps) {
   const changeServiceOrderStatus = useErpDataStore((state) => state.changeServiceOrderStatus);
+  const technicians = useErpDataStore((state) => state.technicians);
   const [pending, setPending] = useState<PendingAction | null>(null);
 
   function handleConfirm() {
@@ -83,11 +83,13 @@ export function ServiceOrderStatusActions({
         <SelectValue placeholder="Técnico" />
       </SelectTrigger>
       <SelectContent>
-        {TECHNICIANS.map((technician) => (
-          <SelectItem key={technician.id} value={technician.id}>
-            {technician.name}
-          </SelectItem>
-        ))}
+        {technicians
+          .filter((technician) => technician.active || technician.id === technicianId)
+          .map((technician) => (
+            <SelectItem key={technician.id} value={technician.id}>
+              {technician.name}
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   );

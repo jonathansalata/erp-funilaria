@@ -14,8 +14,46 @@ import {
   type ClientStatus,
   type ClientType,
 } from "@/lib/mock-data/clients";
+import {
+  CHECKLIST_TEMPLATE_KIND_LABELS,
+  DEFAULT_CHECKLIST_TEMPLATES,
+  type ChecklistTemplate,
+  type ChecklistTemplateKind,
+  type ChecklistTemplateStage,
+} from "@/lib/mock-data/checklist-templates";
 import { canDeleteClient, canDeleteVehicle } from "@/lib/mock-data/crm";
 import { ENTITY_EVENTS, type EntityEvent, type EntityType } from "@/lib/mock-data/entity-events";
+import {
+  CATALOG_META,
+  DEFAULT_BANKS,
+  DEFAULT_CATALOGS,
+  DEFAULT_COMPANY_INFO,
+  DEFAULT_DOCUMENT_SETTINGS,
+  DEFAULT_PAYMENT_METHOD_CONFIGS,
+  DEFAULT_QUOTE_STATUS_CONFIGS,
+  DEFAULT_SERVICE_ORDER_STATUS_CONFIGS,
+  TECHNICAL_LOGS,
+  type BankAccount,
+  type CatalogItem,
+  type CatalogKey,
+  type CompanyInfo,
+  type DocumentSettings,
+  type PaymentMethodConfig,
+  type StatusConfig,
+  type TechnicalLog,
+} from "@/lib/mock-data/settings";
+import { TECHNICIANS, type Technician } from "@/lib/mock-data/technicians";
+import {
+  emptyPermissionMatrix,
+  ROLE_PERMISSION_PRESETS,
+  USER_ROLE_LABELS,
+  USER_STATUS_LABELS,
+  USERS,
+  type PermissionMatrix,
+  type User,
+  type UserRole,
+  type UserStatus,
+} from "@/lib/mock-data/users";
 import {
   PAYABLES,
   PAYMENT_METHOD_LABELS,
@@ -38,7 +76,8 @@ import {
 } from "@/lib/mock-data/inspections";
 import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 import {
-  QUOTE_CATEGORY_LABELS,
+  calculateQuoteTotal,
+  getQuoteItemCategoryLabel,
   QUOTES,
   type Quote,
   type QuoteItem,
@@ -46,6 +85,7 @@ import {
 } from "@/lib/mock-data/quotes-data";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import {
+  calculateServiceOrderTotal,
   SERVICE_ORDERS,
   type ChecklistItem,
   type ServiceOrder,
@@ -125,6 +165,10 @@ type ErpDataState = {
   changeQuoteStatus: (id: string, status: QuoteStatus, reason?: string) => void;
   changeServiceOrderStatus: (id: string, status: ServiceOrderStatus, reason?: string) => void;
   setServiceOrderTechnician: (id: string, technicianId: string) => void;
+  updateServiceOrder: (
+    id: string,
+    input: Partial<Pick<ServiceOrder, "technicianId" | "items" | "notes" | "dueDate">>,
+  ) => void;
   setVehicleJourneyStage: (vehicleId: string, stage: JourneyStage) => void;
   createQuote: (input: {
     clientId: string;
@@ -132,6 +176,10 @@ type ErpDataState = {
     items: QuoteItem[];
     notes?: string;
   }) => Quote;
+  updateQuote: (
+    id: string,
+    input: Partial<Pick<Quote, "clientId" | "vehicleId" | "items" | "notes" | "validUntil">>,
+  ) => void;
   createServiceOrderFromQuote: (quoteId: string) => ServiceOrder | undefined;
   createInspection: (input: {
     clientId: string;
@@ -211,6 +259,93 @@ type ErpDataState = {
   reversePayable: (id: string) => void;
   cancelPayable: (id: string) => void;
   deletePayable: (id: string) => void;
+
+  // Fase 2B — Usuários e permissões
+  users: User[];
+  createUser: (input: {
+    name: string;
+    email: string;
+    phone: string;
+    jobTitle: string;
+    role: UserRole;
+    photoUrl?: string;
+  }) => User;
+  updateUser: (
+    id: string,
+    input: Partial<Pick<User, "name" | "email" | "phone" | "jobTitle" | "photoUrl">>,
+  ) => void;
+  changeUserRole: (id: string, role: UserRole) => void;
+  updateUserPermissions: (id: string, permissions: PermissionMatrix) => void;
+  setUserStatus: (id: string, status: UserStatus, reason?: string) => void;
+  resetUserPassword: (id: string) => void;
+  deleteUser: (id: string) => void;
+
+  // Fase 2B — Técnicos (Configurações > Técnicos)
+  technicians: Technician[];
+  createTechnician: (input: { name: string; role: string }) => Technician;
+  updateTechnician: (id: string, input: Partial<Pick<Technician, "name" | "role">>) => void;
+  toggleTechnicianActive: (id: string) => void;
+  deleteTechnician: (id: string) => void;
+
+  // Fase 2B — Catálogos de Configurações (Serviços, Categorias, Centros de Custo, Equipes, Motivos, Modelos)
+  catalogs: Record<CatalogKey, CatalogItem[]>;
+  createCatalogItem: (key: CatalogKey, name: string) => CatalogItem;
+  updateCatalogItem: (key: CatalogKey, id: string, name: string) => void;
+  toggleCatalogItemActive: (key: CatalogKey, id: string) => void;
+  deleteCatalogItem: (key: CatalogKey, id: string) => void;
+
+  // Fase 2B — Formas de pagamento (Configurações > Formas de Pagamento)
+  paymentMethodConfigs: PaymentMethodConfig[];
+  updatePaymentMethodConfig: (
+    method: PaymentMethodConfig["method"],
+    input: Partial<Pick<PaymentMethodConfig, "label" | "active">>,
+  ) => void;
+
+  // Fase 2B — Bancos
+  banks: BankAccount[];
+  createBank: (input: Omit<BankAccount, "id" | "active">) => BankAccount;
+  updateBank: (
+    id: string,
+    input: Partial<Pick<BankAccount, "bankName" | "agency" | "account">>,
+  ) => void;
+  toggleBankActive: (id: string) => void;
+  deleteBank: (id: string) => void;
+
+  // Fase 2B — Status personalizáveis (Orçamentos / OS)
+  quoteStatusConfigs: StatusConfig[];
+  serviceOrderStatusConfigs: StatusConfig[];
+  updateQuoteStatusConfig: (
+    key: string,
+    input: Partial<Pick<StatusConfig, "label" | "active">>,
+  ) => void;
+  updateServiceOrderStatusConfig: (
+    key: string,
+    input: Partial<Pick<StatusConfig, "label" | "active">>,
+  ) => void;
+
+  // Fase 2B — Configurações da Empresa e Documentos
+  companyInfo: CompanyInfo;
+  updateCompanyInfo: (input: Partial<CompanyInfo>) => void;
+  documentSettings: DocumentSettings;
+  updateDocumentSettings: (input: Partial<DocumentSettings>) => void;
+
+  // Fase 2B — Logs Técnicos (somente leitura nesta fase)
+  technicalLogs: TechnicalLog[];
+
+  // Fase 2B.5 — Templates de Checklist (Configurações > Templates de Checklist)
+  checklistTemplates: ChecklistTemplate[];
+  createChecklistTemplate: (input: {
+    kind: ChecklistTemplateKind;
+    name: string;
+    stages: ChecklistTemplateStage[];
+  }) => ChecklistTemplate;
+  updateChecklistTemplate: (
+    id: string,
+    input: Partial<Pick<ChecklistTemplate, "name" | "stages">>,
+  ) => void;
+  duplicateChecklistTemplate: (id: string) => ChecklistTemplate | undefined;
+  toggleChecklistTemplateActive: (id: string) => void;
+  deleteChecklistTemplate: (id: string) => boolean;
 };
 
 /** Etapa do Pátio correspondente a cada status de Ordem de Serviço (MELHORIA: sincronização da Jornada do Veículo). */
@@ -304,6 +439,19 @@ const CLIENT_FIELD_LABELS: Record<string, string> = {
   notes: "Observações",
 };
 
+const QUOTE_FIELD_LABELS: Record<string, string> = {
+  clientId: "Cliente",
+  vehicleId: "Veículo",
+  notes: "Observações",
+  validUntil: "Válido até",
+};
+
+const SERVICE_ORDER_FIELD_LABELS: Record<string, string> = {
+  technicianId: "Técnico responsável",
+  dueDate: "Previsão de entrega",
+  notes: "Observações",
+};
+
 const VEHICLE_FIELD_LABELS: Record<string, string> = {
   plate: "Placa",
   brand: "Marca",
@@ -315,6 +463,14 @@ const VEHICLE_FIELD_LABELS: Record<string, string> = {
   fuel: "Combustível",
   mileage: "KM atual",
   notes: "Observações",
+};
+
+const USER_FIELD_LABELS: Record<string, string> = {
+  name: "Nome",
+  email: "E-mail",
+  phone: "Telefone",
+  jobTitle: "Cargo",
+  photoUrl: "Foto de perfil",
 };
 
 /** Monta a descrição "Campo: valor anterior → valor novo" para os eventos de auditoria. */
@@ -352,6 +508,17 @@ export const useErpDataStore = create<ErpDataState>()(
       receivables: RECEIVABLES,
       payables: PAYABLES,
       events: ENTITY_EVENTS,
+      users: USERS,
+      technicians: TECHNICIANS,
+      catalogs: DEFAULT_CATALOGS,
+      paymentMethodConfigs: DEFAULT_PAYMENT_METHOD_CONFIGS,
+      banks: DEFAULT_BANKS,
+      quoteStatusConfigs: DEFAULT_QUOTE_STATUS_CONFIGS,
+      serviceOrderStatusConfigs: DEFAULT_SERVICE_ORDER_STATUS_CONFIGS,
+      companyInfo: DEFAULT_COMPANY_INFO,
+      documentSettings: DEFAULT_DOCUMENT_SETTINGS,
+      technicalLogs: TECHNICAL_LOGS,
+      checklistTemplates: DEFAULT_CHECKLIST_TEMPLATES,
       hasHydrated: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
       changeQuoteStatus: (id, status, reason) =>
@@ -442,6 +609,47 @@ export const useErpDataStore = create<ErpDataState>()(
             order.id === id ? { ...order, technicianId } : order,
           ),
         })),
+      updateServiceOrder: (id, input) =>
+        set((state) => {
+          const order = state.serviceOrders.find((item) => item.id === id);
+          if (!order) return {};
+
+          const { items, ...fields } = input;
+          const descriptionParts: string[] = [];
+
+          const fieldsDescription = buildChangeDescription(
+            order,
+            fields,
+            SERVICE_ORDER_FIELD_LABELS,
+          );
+          if (fieldsDescription) descriptionParts.push(fieldsDescription);
+
+          if (items) {
+            const oldTotal = calculateServiceOrderTotal(order.items);
+            const newTotal = calculateServiceOrderTotal(items);
+            descriptionParts.push(
+              `Itens atualizados (Total: ${formatCurrency(oldTotal)} → ${formatCurrency(newTotal)})`,
+            );
+          }
+
+          if (descriptionParts.length === 0) return {};
+
+          const event = buildEntityEvent({
+            entityType: "service_order",
+            entityId: id,
+            eventType: "updated",
+            title: "Ordem de serviço atualizada",
+            description: descriptionParts.join("; "),
+            metadata: { vehicleId: order.vehicleId, clientId: order.clientId },
+          });
+
+          return {
+            serviceOrders: state.serviceOrders.map((item) =>
+              item.id === id ? { ...item, ...input, updatedAt: new Date().toISOString() } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       setVehicleJourneyStage: (vehicleId, stage) =>
         set((state) => ({
           vehicles: updateVehicleJourneyStage(state.vehicles, vehicleId, stage),
@@ -474,6 +682,43 @@ export const useErpDataStore = create<ErpDataState>()(
         set((state) => ({ quotes: [newQuote, ...state.quotes], events: [...state.events, event] }));
         return newQuote;
       },
+      updateQuote: (id, input) =>
+        set((state) => {
+          const quote = state.quotes.find((item) => item.id === id);
+          if (!quote) return {};
+
+          const { items, ...fields } = input;
+          const descriptionParts: string[] = [];
+
+          const fieldsDescription = buildChangeDescription(quote, fields, QUOTE_FIELD_LABELS);
+          if (fieldsDescription) descriptionParts.push(fieldsDescription);
+
+          if (items) {
+            const oldTotal = calculateQuoteTotal(quote.items).total;
+            const newTotal = calculateQuoteTotal(items).total;
+            descriptionParts.push(
+              `Itens atualizados (Total: ${formatCurrency(oldTotal)} → ${formatCurrency(newTotal)})`,
+            );
+          }
+
+          if (descriptionParts.length === 0) return {};
+
+          const event = buildEntityEvent({
+            entityType: "quote",
+            entityId: id,
+            eventType: "updated",
+            title: "Orçamento atualizado",
+            description: descriptionParts.join("; "),
+            metadata: { vehicleId: quote.vehicleId, clientId: quote.clientId },
+          });
+
+          return {
+            quotes: state.quotes.map((item) =>
+              item.id === id ? { ...item, ...input, updatedAt: new Date().toISOString() } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       createServiceOrderFromQuote: (quoteId) => {
         const state = get();
         const quote = state.quotes.find((item) => item.id === quoteId);
@@ -489,25 +734,36 @@ export const useErpDataStore = create<ErpDataState>()(
         const now = new Date().toISOString();
         const newOrderId = `os-${Date.now()}`;
 
+        const template =
+          state.checklistTemplates.find((item) => item.kind === "service_order" && item.active) ??
+          state.checklistTemplates.find((item) => item.kind === "service_order");
+        const templateStages = template?.stages ?? [];
+        const receptionStages = templateStages.slice(0, -1);
+        const deliveryStage = templateStages[templateStages.length - 1];
+
         const checklist: ChecklistItem[] = [
-          {
-            id: `${newOrderId}-c0`,
-            label: "Conferir avarias registradas na vistoria",
-            done: false,
-            category: "Recepção",
-          },
+          ...receptionStages.flatMap((stage, stageIndex) =>
+            stage.items.map((item, itemIndex) => ({
+              id: `${newOrderId}-stage${stageIndex}-${itemIndex}`,
+              label: item.label,
+              done: false,
+              category: stage.name,
+            })),
+          ),
           ...quote.items.map((item, index) => ({
             id: `${newOrderId}-c${index + 1}`,
             label: item.description,
             done: false,
-            category: QUOTE_CATEGORY_LABELS[item.category],
+            category: getQuoteItemCategoryLabel(item.category),
           })),
-          {
-            id: `${newOrderId}-c-final`,
-            label: "Inspeção final e limpeza",
-            done: false,
-            category: "Entrega",
-          },
+          ...(deliveryStage
+            ? deliveryStage.items.map((item, itemIndex) => ({
+                id: `${newOrderId}-delivery-${itemIndex}`,
+                label: item.label,
+                done: false,
+                category: deliveryStage.name,
+              }))
+            : []),
         ];
 
         const newOrder: ServiceOrder = {
@@ -524,7 +780,7 @@ export const useErpDataStore = create<ErpDataState>()(
           items: quote.items.map((item) => ({
             id: `${newOrderId}-${item.id}`,
             description: item.description,
-            category: QUOTE_CATEGORY_LABELS[item.category],
+            category: getQuoteItemCategoryLabel(item.category),
             quantity: item.quantity,
             unitPrice: item.unitPrice,
           })),
@@ -1323,15 +1579,688 @@ export const useErpDataStore = create<ErpDataState>()(
             events: [...state.events, event],
           };
         }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Usuários e Permissões
+      // ---------------------------------------------------------------------------
+      createUser: (input) => {
+        const newUser: User = {
+          id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          jobTitle: input.jobTitle,
+          photoUrl: input.photoUrl,
+          role: input.role,
+          status: "ativo",
+          permissions:
+            input.role === "personalizado"
+              ? emptyPermissionMatrix()
+              : ROLE_PERMISSION_PRESETS[input.role],
+          mustChangePassword: true,
+          createdAt: new Date().toISOString(),
+        };
+
+        const event = buildEntityEvent({
+          entityType: "user",
+          entityId: newUser.id,
+          eventType: "created",
+          title: "Usuário criado",
+          description: `Usuário ${newUser.name} (${USER_ROLE_LABELS[newUser.role]}) criado.`,
+        });
+
+        set((state) => ({ users: [...state.users, newUser], events: [...state.events, event] }));
+        return newUser;
+      },
+      updateUser: (id, input) =>
+        set((state) => {
+          const user = state.users.find((item) => item.id === id);
+          if (!user) return {};
+
+          const description = buildChangeDescription(user, input, USER_FIELD_LABELS);
+          if (!description) return {};
+
+          const event = buildEntityEvent({
+            entityType: "user",
+            entityId: id,
+            eventType: "updated",
+            title: "Cadastro de usuário atualizado",
+            description,
+          });
+
+          return {
+            users: state.users.map((item) => (item.id === id ? { ...item, ...input } : item)),
+            events: [...state.events, event],
+          };
+        }),
+      changeUserRole: (id, role) =>
+        set((state) => {
+          const user = state.users.find((item) => item.id === id);
+          if (!user || user.role === role) return {};
+
+          const event = buildEntityEvent({
+            entityType: "user",
+            entityId: id,
+            eventType: "permission_changed",
+            title: "Perfil de acesso alterado",
+            description: `Perfil: "${USER_ROLE_LABELS[user.role]}" → "${USER_ROLE_LABELS[role]}".`,
+          });
+
+          return {
+            users: state.users.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    role,
+                    permissions:
+                      role === "personalizado" ? item.permissions : ROLE_PERMISSION_PRESETS[role],
+                  }
+                : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      updateUserPermissions: (id, permissionsMatrix) =>
+        set((state) => {
+          const user = state.users.find((item) => item.id === id);
+          if (!user) return {};
+
+          const event = buildEntityEvent({
+            entityType: "user",
+            entityId: id,
+            eventType: "permission_changed",
+            title: "Permissões atualizadas",
+            description: `Permissões granulares de ${user.name} atualizadas.`,
+          });
+
+          return {
+            users: state.users.map((item) =>
+              item.id === id ? { ...item, permissions: permissionsMatrix } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      setUserStatus: (id, status, reason) =>
+        set((state) => {
+          const user = state.users.find((item) => item.id === id);
+          if (!user || user.status === status) return {};
+
+          const event = buildEntityEvent({
+            entityType: "user",
+            entityId: id,
+            eventType: status === "ativo" ? "updated" : "inactivated",
+            title: `Status do usuário alterado para ${USER_STATUS_LABELS[status]}`,
+            description:
+              reason ??
+              `Status: "${USER_STATUS_LABELS[user.status]}" → "${USER_STATUS_LABELS[status]}".`,
+          });
+
+          return {
+            users: state.users.map((item) => (item.id === id ? { ...item, status } : item)),
+            events: [...state.events, event],
+          };
+        }),
+      resetUserPassword: (id) =>
+        set((state) => {
+          const user = state.users.find((item) => item.id === id);
+          if (!user) return {};
+
+          const event = buildEntityEvent({
+            entityType: "user",
+            entityId: id,
+            eventType: "password_reset",
+            title: "Senha redefinida",
+            description: `Senha do usuário ${user.name} redefinida pelo administrador. Nova senha provisória deverá ser trocada no próximo acesso.`,
+          });
+
+          return {
+            users: state.users.map((item) =>
+              item.id === id ? { ...item, mustChangePassword: true } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      deleteUser: (id) =>
+        set((state) => {
+          const user = state.users.find((item) => item.id === id);
+          if (!user) return {};
+
+          const event = buildEntityEvent({
+            entityType: "user",
+            entityId: id,
+            eventType: "deleted",
+            title: "Usuário excluído",
+            description: `Usuário ${user.name} excluído.`,
+          });
+
+          return {
+            users: state.users.filter((item) => item.id !== id),
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Técnicos (Configurações > Técnicos)
+      // ---------------------------------------------------------------------------
+      createTechnician: (input) => {
+        const newTechnician: Technician = {
+          id: `tec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: input.name,
+          role: input.role,
+          active: true,
+        };
+
+        const event = buildEntityEvent({
+          entityType: "settings",
+          entityId: newTechnician.id,
+          eventType: "created",
+          title: "Técnico cadastrado",
+          description: `Técnico ${newTechnician.name} cadastrado.`,
+        });
+
+        set((state) => ({
+          technicians: [...state.technicians, newTechnician],
+          events: [...state.events, event],
+        }));
+        return newTechnician;
+      },
+      updateTechnician: (id, input) =>
+        set((state) => {
+          const technician = state.technicians.find((item) => item.id === id);
+          if (!technician) return {};
+
+          const description = buildChangeDescription(technician, input, {
+            name: "Nome",
+            role: "Função",
+          });
+          if (!description) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "updated",
+            title: "Técnico atualizado",
+            description,
+          });
+
+          return {
+            technicians: state.technicians.map((item) =>
+              item.id === id ? { ...item, ...input } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      toggleTechnicianActive: (id) =>
+        set((state) => {
+          const technician = state.technicians.find((item) => item.id === id);
+          if (!technician) return {};
+
+          const nextActive = !technician.active;
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: nextActive ? "updated" : "inactivated",
+            title: `Técnico ${nextActive ? "reativado" : "inativado"}`,
+            description: `Técnico ${technician.name} ${nextActive ? "reativado" : "inativado"}.`,
+          });
+
+          return {
+            technicians: state.technicians.map((item) =>
+              item.id === id ? { ...item, active: nextActive } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      deleteTechnician: (id) =>
+        set((state) => {
+          const technician = state.technicians.find((item) => item.id === id);
+          if (!technician) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "deleted",
+            title: "Técnico excluído",
+            description: `Técnico ${technician.name} excluído.`,
+          });
+
+          return {
+            technicians: state.technicians.filter((item) => item.id !== id),
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Catálogos de Configurações (Serviços, Categorias, Centros de Custo,
+      // Equipes, Motivos de Cancelamento/Recusa, Modelos de Observação)
+      // ---------------------------------------------------------------------------
+      createCatalogItem: (key, name) => {
+        const newItem: CatalogItem = {
+          id: `${key}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name,
+          active: true,
+        };
+
+        const event = buildEntityEvent({
+          entityType: "settings",
+          entityId: newItem.id,
+          eventType: "created",
+          title: `${CATALOG_META[key].title}: item criado`,
+          description: `"${name}" criado em ${CATALOG_META[key].title}.`,
+        });
+
+        set((state) => ({
+          catalogs: { ...state.catalogs, [key]: [...state.catalogs[key], newItem] },
+          events: [...state.events, event],
+        }));
+        return newItem;
+      },
+      updateCatalogItem: (key, id, name) =>
+        set((state) => {
+          const item = state.catalogs[key].find((entry) => entry.id === id);
+          if (!item || item.name === name) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "updated",
+            title: `${CATALOG_META[key].title}: item atualizado`,
+            description: `${CATALOG_META[key].title}: "${item.name}" → "${name}".`,
+          });
+
+          return {
+            catalogs: {
+              ...state.catalogs,
+              [key]: state.catalogs[key].map((entry) =>
+                entry.id === id ? { ...entry, name } : entry,
+              ),
+            },
+            events: [...state.events, event],
+          };
+        }),
+      toggleCatalogItemActive: (key, id) =>
+        set((state) => {
+          const item = state.catalogs[key].find((entry) => entry.id === id);
+          if (!item) return {};
+
+          const nextActive = !item.active;
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: nextActive ? "updated" : "inactivated",
+            title: `${CATALOG_META[key].title}: item ${nextActive ? "reativado" : "inativado"}`,
+            description: `"${item.name}" ${nextActive ? "reativado" : "inativado"} em ${CATALOG_META[key].title}.`,
+          });
+
+          return {
+            catalogs: {
+              ...state.catalogs,
+              [key]: state.catalogs[key].map((entry) =>
+                entry.id === id ? { ...entry, active: nextActive } : entry,
+              ),
+            },
+            events: [...state.events, event],
+          };
+        }),
+      deleteCatalogItem: (key, id) =>
+        set((state) => {
+          const item = state.catalogs[key].find((entry) => entry.id === id);
+          if (!item) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "deleted",
+            title: `${CATALOG_META[key].title}: item excluído`,
+            description: `"${item.name}" excluído de ${CATALOG_META[key].title}.`,
+          });
+
+          return {
+            catalogs: {
+              ...state.catalogs,
+              [key]: state.catalogs[key].filter((entry) => entry.id !== id),
+            },
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Formas de Pagamento
+      // ---------------------------------------------------------------------------
+      updatePaymentMethodConfig: (method, input) =>
+        set((state) => {
+          const config = state.paymentMethodConfigs.find((item) => item.method === method);
+          if (!config) return {};
+
+          const changes: string[] = [];
+          if (input.label !== undefined && input.label !== config.label) {
+            changes.push(`Rótulo: "${config.label}" → "${input.label}"`);
+          }
+          if (input.active !== undefined && input.active !== config.active) {
+            changes.push(
+              `Status: "${config.active ? "Ativo" : "Inativo"}" → "${input.active ? "Ativo" : "Inativo"}"`,
+            );
+          }
+          if (changes.length === 0) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: method,
+            eventType: "updated",
+            title: "Forma de pagamento atualizada",
+            description: changes.join("; "),
+          });
+
+          return {
+            paymentMethodConfigs: state.paymentMethodConfigs.map((item) =>
+              item.method === method ? { ...item, ...input } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Bancos
+      // ---------------------------------------------------------------------------
+      createBank: (input) => {
+        const newBank: BankAccount = {
+          id: `bank-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          ...input,
+          active: true,
+        };
+
+        const event = buildEntityEvent({
+          entityType: "settings",
+          entityId: newBank.id,
+          eventType: "created",
+          title: "Banco cadastrado",
+          description: `Banco ${newBank.bankName} (Ag. ${newBank.agency} / Conta ${newBank.account}) cadastrado.`,
+        });
+
+        set((state) => ({ banks: [...state.banks, newBank], events: [...state.events, event] }));
+        return newBank;
+      },
+      updateBank: (id, input) =>
+        set((state) => {
+          const bank = state.banks.find((item) => item.id === id);
+          if (!bank) return {};
+
+          const description = buildChangeDescription(bank, input, {
+            bankName: "Banco",
+            agency: "Agência",
+            account: "Conta",
+          });
+          if (!description) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "updated",
+            title: "Banco atualizado",
+            description,
+          });
+
+          return {
+            banks: state.banks.map((item) => (item.id === id ? { ...item, ...input } : item)),
+            events: [...state.events, event],
+          };
+        }),
+      toggleBankActive: (id) =>
+        set((state) => {
+          const bank = state.banks.find((item) => item.id === id);
+          if (!bank) return {};
+
+          const nextActive = !bank.active;
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: nextActive ? "updated" : "inactivated",
+            title: `Banco ${nextActive ? "reativado" : "inativado"}`,
+            description: `Banco ${bank.bankName} ${nextActive ? "reativado" : "inativado"}.`,
+          });
+
+          return {
+            banks: state.banks.map((item) =>
+              item.id === id ? { ...item, active: nextActive } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      deleteBank: (id) =>
+        set((state) => {
+          const bank = state.banks.find((item) => item.id === id);
+          if (!bank) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "deleted",
+            title: "Banco excluído",
+            description: `Banco ${bank.bankName} excluído.`,
+          });
+
+          return {
+            banks: state.banks.filter((item) => item.id !== id),
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Status personalizáveis (Orçamentos / Ordens de Serviço)
+      // ---------------------------------------------------------------------------
+      updateQuoteStatusConfig: (key, input) =>
+        set((state) => {
+          const config = state.quoteStatusConfigs.find((item) => item.key === key);
+          if (!config) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: `quote-status-${key}`,
+            eventType: "updated",
+            title: "Status de Orçamento atualizado",
+            description: `"${config.label}" → "${input.label ?? config.label}" (${
+              (input.active ?? config.active) ? "ativo" : "inativo"
+            }).`,
+          });
+
+          return {
+            quoteStatusConfigs: state.quoteStatusConfigs.map((item) =>
+              item.key === key ? { ...item, ...input } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      updateServiceOrderStatusConfig: (key, input) =>
+        set((state) => {
+          const config = state.serviceOrderStatusConfigs.find((item) => item.key === key);
+          if (!config) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: `os-status-${key}`,
+            eventType: "updated",
+            title: "Status de Ordem de Serviço atualizado",
+            description: `"${config.label}" → "${input.label ?? config.label}" (${
+              (input.active ?? config.active) ? "ativo" : "inativo"
+            }).`,
+          });
+
+          return {
+            serviceOrderStatusConfigs: state.serviceOrderStatusConfigs.map((item) =>
+              item.key === key ? { ...item, ...input } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B — Configurações da Empresa e Documentos
+      // ---------------------------------------------------------------------------
+      updateCompanyInfo: (input) =>
+        set((state) => {
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: "company-info",
+            eventType: "updated",
+            title: "Dados da empresa atualizados",
+            description: "Cadastro da empresa atualizado em Configurações.",
+          });
+
+          return {
+            companyInfo: { ...state.companyInfo, ...input },
+            events: [...state.events, event],
+          };
+        }),
+      updateDocumentSettings: (input) =>
+        set((state) => {
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: "document-settings",
+            eventType: "updated",
+            title: "Configurações de documentos atualizadas",
+            description: "Cabeçalho, rodapé, observações padrão ou texto de garantia atualizados.",
+          });
+
+          return {
+            documentSettings: { ...state.documentSettings, ...input },
+            events: [...state.events, event],
+          };
+        }),
+
+      // ---------------------------------------------------------------------------
+      // Fase 2B.5 — Templates de Checklist (Configurações > Templates de Checklist)
+      // ---------------------------------------------------------------------------
+      createChecklistTemplate: (input) => {
+        const newTemplate: ChecklistTemplate = {
+          id: `chk-tpl-${Date.now()}`,
+          kind: input.kind,
+          name: input.name,
+          active: true,
+          stages: input.stages,
+        };
+
+        const event = buildEntityEvent({
+          entityType: "settings",
+          entityId: newTemplate.id,
+          eventType: "created",
+          title: "Template de checklist criado",
+          description: `"${newTemplate.name}" (${CHECKLIST_TEMPLATE_KIND_LABELS[newTemplate.kind]}) criado.`,
+        });
+
+        set((state) => ({
+          checklistTemplates: [...state.checklistTemplates, newTemplate],
+          events: [...state.events, event],
+        }));
+        return newTemplate;
+      },
+      updateChecklistTemplate: (id, input) =>
+        set((state) => {
+          const template = state.checklistTemplates.find((item) => item.id === id);
+          if (!template) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: "updated",
+            title: "Template de checklist atualizado",
+            description: `"${template.name}" atualizado.`,
+          });
+
+          return {
+            checklistTemplates: state.checklistTemplates.map((item) =>
+              item.id === id ? { ...item, ...input } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      duplicateChecklistTemplate: (id) => {
+        const state = get();
+        const template = state.checklistTemplates.find((item) => item.id === id);
+        if (!template) return undefined;
+
+        const newTemplate: ChecklistTemplate = {
+          ...template,
+          id: `chk-tpl-${Date.now()}`,
+          name: `${template.name} (cópia)`,
+          active: false,
+          stages: template.stages.map((stage) => ({
+            ...stage,
+            id: `${stage.id}-copy-${Date.now()}`,
+            items: stage.items.map((item) => ({ ...item })),
+          })),
+        };
+
+        const event = buildEntityEvent({
+          entityType: "settings",
+          entityId: newTemplate.id,
+          eventType: "created",
+          title: "Template de checklist duplicado",
+          description: `"${newTemplate.name}" criado a partir de "${template.name}".`,
+        });
+
+        set((current) => ({
+          checklistTemplates: [...current.checklistTemplates, newTemplate],
+          events: [...current.events, event],
+        }));
+        return newTemplate;
+      },
+      toggleChecklistTemplateActive: (id) =>
+        set((state) => {
+          const template = state.checklistTemplates.find((item) => item.id === id);
+          if (!template) return {};
+
+          const event = buildEntityEvent({
+            entityType: "settings",
+            entityId: id,
+            eventType: template.active ? "inactivated" : "updated",
+            title: template.active
+              ? "Template de checklist inativado"
+              : "Template de checklist ativado",
+            description: `"${template.name}" foi ${template.active ? "inativado" : "ativado"}.`,
+          });
+
+          return {
+            checklistTemplates: state.checklistTemplates.map((item) =>
+              item.id === id ? { ...item, active: !item.active } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      deleteChecklistTemplate: (id) => {
+        const state = get();
+        const template = state.checklistTemplates.find((item) => item.id === id);
+        if (!template) return false;
+
+        const remainingOfKind = state.checklistTemplates.filter(
+          (item) => item.kind === template.kind && item.id !== id,
+        );
+        if (remainingOfKind.length === 0) return false;
+
+        const event = buildEntityEvent({
+          entityType: "settings",
+          entityId: id,
+          eventType: "deleted",
+          title: "Template de checklist excluído",
+          description: `"${template.name}" (${CHECKLIST_TEMPLATE_KIND_LABELS[template.kind]}) excluído.`,
+        });
+
+        set((current) => ({
+          checklistTemplates: current.checklistTemplates.filter((item) => item.id !== id),
+          events: [...current.events, event],
+        }));
+        return true;
+      },
     }),
     {
       name: "erp-data-store",
-      version: 3,
+      version: 5,
       migrate: (persistedState, version) => {
-        if (version < 3) {
-          // Fase 2D introduziu múltiplas formas de pagamento (payments[]) em Contas a
-          // Receber/Pagar — dados persistidos de versões anteriores são descartados em
-          // favor dos mocks atuais.
+        if (version < 5) {
+          // Fase 2B introduziu Usuários, Técnicos, Catálogos de Configurações, Formas de
+          // Pagamento configuráveis, Bancos, Status personalizáveis, Empresa/Documentos e
+          // Logs Técnicos. Fase 2D introduziu múltiplas formas de pagamento (payments[]) em
+          // Contas a Receber/Pagar. Dados persistidos de versões anteriores são descartados
+          // em favor dos mocks atuais.
           return {} as ErpDataState;
         }
         return persistedState as ErpDataState;

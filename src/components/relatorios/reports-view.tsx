@@ -19,7 +19,6 @@ import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import { calculateQuoteTotal, type Quote } from "@/lib/mock-data/quotes-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import { calculateServiceOrderTotal, type ServiceOrder } from "@/lib/mock-data/service-orders-data";
-import { getTechnicianById } from "@/lib/mock-data/technicians";
 import {
   getVehicleLabel,
   getVehicleLabelById,
@@ -41,6 +40,9 @@ export function ReportsView() {
   const serviceOrders = useErpDataStore((state) => state.serviceOrders);
   const receivables = useErpDataStore((state) => state.receivables);
   const payables = useErpDataStore((state) => state.payables);
+  const technicians = useErpDataStore((state) => state.technicians);
+  const getTechnicianName = (technicianId: string) =>
+    technicians.find((technician) => technician.id === technicianId)?.name;
 
   const clientColumns: ReportColumn<Client>[] = [
     {
@@ -251,9 +253,9 @@ export function ReportsView() {
     {
       id: "technician",
       header: "Técnico",
-      cell: (row) => getTechnicianById(row.technicianId)?.name ?? "—",
+      cell: (row) => getTechnicianName(row.technicianId) ?? "—",
       csvHeader: "Técnico",
-      csvValue: (row) => getTechnicianById(row.technicianId)?.name ?? "—",
+      csvValue: (row) => getTechnicianName(row.technicianId) ?? "—",
     },
     {
       id: "value",

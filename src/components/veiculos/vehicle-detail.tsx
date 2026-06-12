@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil, Power, Trash2 } from "lucide-react";
+import { Clock, FileText, Pencil, Power, Receipt, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { EntityHeader } from "@/components/shared/entity-header";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,11 @@ import {
 } from "@/components/ui/table";
 import { VehicleEditDialog } from "@/components/veiculos/vehicle-edit-dialog";
 import type { Client } from "@/lib/mock-data/clients";
-import { canDeleteVehicle, getVehicleFinancialSummary } from "@/lib/mock-data/crm";
+import {
+  canDeleteVehicle,
+  getVehicleFinancialSummary,
+  getVehicleSummary,
+} from "@/lib/mock-data/crm";
 import {
   type EntityEvent,
   getVehicleTimeline,
@@ -30,6 +36,8 @@ import {
 } from "@/lib/mock-data/entity-events";
 import type { Receivable } from "@/lib/mock-data/financeiro";
 import { INSPECTION_STATUS_META, type Inspection } from "@/lib/mock-data/inspections";
+import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
+import { buildVehiclePdf } from "@/lib/pdf/vehicle-pdf";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import { calculateQuoteTotal, type Quote } from "@/lib/mock-data/quotes-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
@@ -77,7 +85,28 @@ export function VehicleDetail({
     serviceOrders,
     receivables,
   );
+  const summary = getVehicleSummary(vehicle, quotes, serviceOrders);
   const statusMeta = VEHICLE_STATUS_META[vehicle.status];
+
+  function buildPdfDocument() {
+    return buildVehiclePdf(
+      vehicle,
+      client,
+      inspections,
+      quotes,
+      serviceOrders,
+      summary,
+      financialSummary,
+    );
+  }
+
+  function handleExportPdf() {
+    downloadPdf(buildPdfDocument(), `${vehicle.code}.pdf`);
+  }
+
+  function handlePrint() {
+    printPdf(buildPdfDocument());
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,6 +118,7 @@ export function VehicleDetail({
         backHref={client ? `/clientes/${client.id}` : "/veiculos"}
         actions={
           <>
+            <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
             <Button variant="outline" onClick={() => setIsEditOpen(true)}>
               <Pencil />
               Editar
@@ -120,6 +150,21 @@ export function VehicleDetail({
           </>
         }
       />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard title="Total de orçamentos" value={String(summary.totalQuotes)} icon={FileText} />
+        <KpiCard title="Total de OS" value={String(summary.totalServiceOrders)} icon={Wrench} />
+        <KpiCard
+          title="Valor total gasto"
+          value={formatCurrency(summary.totalSpent)}
+          icon={Receipt}
+        />
+        <KpiCard
+          title="Última visita"
+          value={summary.lastVisit ? formatDate(summary.lastVisit) : "-"}
+          icon={Clock}
+        />
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="flex flex-col gap-6 xl:col-span-2">
