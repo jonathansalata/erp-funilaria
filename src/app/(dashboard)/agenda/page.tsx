@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { AgendaView } from "@/components/agenda/agenda-view";
 
 export default function AgendaPage() {
-  return (
-    <PlaceholderPage
-      title="Agenda"
-      description="Agendamentos de vistorias, orçamentos e serviços da oficina."
-    />
-  );
+  return <AgendaView />;
 }

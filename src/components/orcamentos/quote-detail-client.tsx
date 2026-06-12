@@ -40,10 +40,13 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
   const changeQuoteStatus = useErpDataStore((state) => state.changeQuoteStatus);
   const [attachments, setAttachments] = useState(quote.attachments);
 
+  const storeEvents = useErpDataStore((state) => state.events);
   const client = getClientById(quote.clientId);
   const vehicle = getVehicleById(quote.vehicleId);
   const totals = calculateQuoteTotal(quote.items);
-  const events = getEventsForEntity("quote", quote.id).map(mapEntityEventToTimelineEntry);
+  const events = getEventsForEntity(storeEvents, "quote", quote.id).map(
+    mapEntityEventToTimelineEntry,
+  );
   const statusHistoryEntries: TimelineEntry[] = statusHistory.map((event) => ({
     id: event.id,
     title: `${QUOTE_STATUS_META[event.from as QuoteStatus]?.title ?? event.from} → ${QUOTE_STATUS_META[event.to as QuoteStatus]?.title ?? event.to}`,

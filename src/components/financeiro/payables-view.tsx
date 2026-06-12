@@ -1,0 +1,229 @@
+"use client";
+
+import { useState } from "react";
+import { AlertTriangle, CircleDollarSign, Plus, Wallet } from "lucide-react";
+
+import {
+  PayableFormDialog,
+  type PayableFormValues,
+} from "@/components/financeiro/payable-form-dialog";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableFilter,
+} from "@/components/shared/data-table";
+import { KpiCard } from "@/components/shared/kpi-card";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { Button } from "@/components/ui/button";
+import {
+  getPayablesSummary,
+  isOverdue,
+  PAYABLE_CATEGORY_LABELS,
+  PAYABLE_STATUS_META,
+  type Payable,
+} from "@/lib/mock-data/financeiro";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
+
+export function PayablesView() {
+  const payables = useErpDataStore((state) => state.payables);
+  const createPayable = useErpDataStore((state) => state.createPayable);
+  const updatePayable = useErpDataStore((state) => state.updatePayable);
+  const payPayable = useErpDataStore((state) => state.payPayable);
+  const reversePayable = useErpDataStore((state) => state.reversePayable);
+  const cancelPayable = useErpDataStore((state) => state.cancelPayable);
+  const deletePayable = useErpDataStore((state) => state.deletePayable);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingPayable, setEditingPayable] = useState<Payable | undefined>(undefined);
+  const [deletingPayable, setDeletingPayable] = useState<Payable | undefined>(undefined);
+
+  const summary = getPayablesSummary(payables);
+
+  function openNew() {
+    setEditingPayable(undefined);
+    setFormOpen(true);
+  }
+
+  function openEdit(payable: Payable) {
+    setEditingPayable(payable);
+    setFormOpen(true);
+  }
+
+  function handleSubmit(values: PayableFormValues) {
+    if (editingPayable) {
+      updatePayable(editingPayable.id, values);
+    } else {
+      createPayable(values);
+    }
+  }
+
+  const columns: DataTableColumn<Payable>[] = [
+    {
+      id: "supplier",
+      header: "Fornecedor",
+      cell: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{row.supplier}</span>
+          {row.description && (
+            <span className="text-muted-foreground text-xs">{row.description}</span>
+          )}
+        </div>
+      ),
+      sortValue: (row) => row.supplier,
+    },
+    {
+      id: "category",
+      header: "Categoria",
+      cell: (row) => PAYABLE_CATEGORY_LABELS[row.category],
+    },
+    {
+      id: "value",
+      header: "Valor",
+      cell: (row) => formatCurrency(row.value),
+      sortValue: (row) => row.value,
+      className: "text-right",
+    },
+    {
+      id: "dueDate",
+      header: "Vencimento",
+      cell: (row) => (
+        <span
+          className={
+            isOverdue(row.dueDate, row.status, "aberto") ? "text-destructive font-medium" : ""
+          }
+        >
+          {formatDate(row.dueDate)}
+        </span>
+      ),
+      sortValue: (row) => row.dueDate,
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: (row) => (
+        <StatusBadge variant={PAYABLE_STATUS_META[row.status].variant}>
+          {PAYABLE_STATUS_META[row.status].label}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Ações",
+      cell: (row) => (
+        <div className="flex justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+          {row.status === "aberto" && (
+            <Button size="sm" variant="outline" onClick={() => payPayable(row.id)}>
+              Pagar
+            </Button>
+          )}
+          {row.status === "pago" && (
+            <Button size="sm" variant="outline" onClick={() => reversePayable(row.id)}>
+              Estornar
+            </Button>
+          )}
+          {row.status === "aberto" && (
+            <Button size="sm" variant="outline" onClick={() => cancelPayable(row.id)}>
+              Cancelar
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
+            Editar
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => setDeletingPayable(row)}>
+            Excluir
+          </Button>
+        </div>
+      ),
+      className: "text-right",
+    },
+  ];
+
+  const filters: DataTableFilter<Payable>[] = [
+    {
+      id: "status",
+      label: "Status",
+      options: Object.entries(PAYABLE_STATUS_META).map(([value, meta]) => ({
+        label: meta.label,
+        value,
+      })),
+      predicate: (row, value) => row.status === value,
+    },
+    {
+      id: "category",
+      label: "Categoria",
+      options: Object.entries(PAYABLE_CATEGORY_LABELS).map(([value, label]) => ({
+        label,
+        value,
+      })),
+      predicate: (row, value) => row.category === value,
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold">Contas a Pagar</h1>
+          <p className="text-muted-foreground text-sm">
+            Contas a pagar a fornecedores e despesas operacionais da oficina.
+          </p>
+        </div>
+        <Button onClick={openNew}>
+          <Plus />
+          Nova conta
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard
+          title="Total em aberto"
+          value={formatCurrency(summary.totalAberto)}
+          icon={Wallet}
+          description="Saldo de contas abertas"
+        />
+        <KpiCard
+          title="Pago no mês"
+          value={formatCurrency(summary.pagoNoMes)}
+          icon={CircleDollarSign}
+          description="Total pago no mês de referência"
+        />
+        <KpiCard
+          title="Vencidos"
+          value={String(summary.vencidosCount)}
+          icon={AlertTriangle}
+          description={`${formatCurrency(summary.vencidosValue)} em atraso`}
+        />
+      </div>
+
+      <DataTable
+        data={payables}
+        columns={columns}
+        getRowId={(row) => row.id}
+        searchPlaceholder="Buscar por fornecedor..."
+        searchFn={(row, query) => row.supplier.toLowerCase().includes(query)}
+        filters={filters}
+        emptyMessage="Nenhuma conta a pagar encontrada."
+      />
+
+      <PayableFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        payable={editingPayable}
+        onSubmit={handleSubmit}
+      />
+
+      <ConfirmDeleteDialog
+        open={Boolean(deletingPayable)}
+        onOpenChange={(open) => !open && setDeletingPayable(undefined)}
+        onConfirm={() => {
+          if (deletingPayable) {
+            deletePayable(deletingPayable.id);
+          }
+        }}
+        itemLabel={deletingPayable ? `a conta a pagar de ${deletingPayable.supplier}` : undefined}
+      />
+    </div>
+  );
+}

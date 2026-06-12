@@ -10,6 +10,10 @@ export type JourneyStage =
   | "pronto_para_retirada"
   | "entregue";
 
+export type VehicleStatus = "ativo" | "inativo";
+
+export type FuelType = "flex" | "gasolina" | "etanol" | "diesel" | "eletrico" | "hibrido" | "gnv";
+
 export type Vehicle = {
   id: string;
   code: string;
@@ -19,9 +23,14 @@ export type Vehicle = {
   model: string;
   year: number;
   color: string;
+  chassi?: string;
+  renavam?: string;
+  fuel?: FuelType;
   mileage: number;
+  status: VehicleStatus;
   journeyStage: JourneyStage | null;
   journeyStageUpdatedAt?: string;
+  notes?: string;
 };
 
 export const JOURNEY_STAGE_META: Record<JourneyStage, { label: string; variant: StatusVariant }> = {
@@ -35,6 +44,22 @@ export const JOURNEY_STAGE_META: Record<JourneyStage, { label: string; variant: 
   entregue: { label: "Entregue", variant: "success" },
 };
 
+export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; variant: StatusVariant }> =
+  {
+    ativo: { label: "Ativo", variant: "success" },
+    inativo: { label: "Inativo", variant: "default" },
+  };
+
+export const FUEL_TYPE_LABELS: Record<FuelType, string> = {
+  flex: "Flex",
+  gasolina: "Gasolina",
+  etanol: "Etanol",
+  diesel: "Diesel",
+  eletrico: "Elétrico",
+  hibrido: "Híbrido",
+  gnv: "GNV",
+};
+
 export const VEHICLES: Vehicle[] = [
   {
     id: "vei-001",
@@ -45,7 +70,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Civic",
     year: 2019,
     color: "Preto",
+    chassi: "9BWZZZ377VT004251",
+    renavam: "00123456789",
+    fuel: "flex",
     mileage: 68500,
+    status: "ativo",
     journeyStage: "aguardando_aprovacao",
     journeyStageUpdatedAt: "2026-06-11T09:00:00-03:00",
   },
@@ -58,7 +87,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Toro",
     year: 2021,
     color: "Branco",
+    chassi: "9BD15806AL1234567",
+    renavam: "00234567890",
+    fuel: "diesel",
     mileage: 41200,
+    status: "ativo",
     journeyStage: "aguardando_aprovacao",
     journeyStageUpdatedAt: "2026-06-11T07:30:00-03:00",
   },
@@ -71,7 +104,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Sprinter",
     year: 2020,
     color: "Branco",
+    chassi: "8AC9036651A234567",
+    renavam: "00345678901",
+    fuel: "diesel",
     mileage: 132400,
+    status: "ativo",
     journeyStage: "aguardando_aprovacao",
     journeyStageUpdatedAt: "2026-06-10T16:00:00-03:00",
   },
@@ -84,7 +121,11 @@ export const VEHICLES: Vehicle[] = [
     model: "HB20",
     year: 2022,
     color: "Vermelho",
+    chassi: "9BHBH51EADP123456",
+    renavam: "00456789012",
+    fuel: "flex",
     mileage: 28900,
+    status: "ativo",
     journeyStage: "aguardando_aprovacao",
     journeyStageUpdatedAt: "2026-06-10T11:00:00-03:00",
   },
@@ -97,7 +138,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Compass",
     year: 2018,
     color: "Cinza",
+    chassi: "988BL6CV0JM123456",
+    renavam: "00567890123",
+    fuel: "flex",
     mileage: 89700,
+    status: "ativo",
     journeyStage: "aguardando_aprovacao",
     journeyStageUpdatedAt: "2026-06-09T10:30:00-03:00",
   },
@@ -110,7 +155,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Onix",
     year: 2020,
     color: "Prata",
+    chassi: "9BGKS48U0LG123456",
+    renavam: "00678901234",
+    fuel: "flex",
     mileage: 55300,
+    status: "ativo",
     journeyStage: "aguardando_aprovacao",
     journeyStageUpdatedAt: "2026-06-08T09:15:00-03:00",
   },
@@ -123,7 +172,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Gol",
     year: 2017,
     color: "Branco",
+    chassi: "9BWAB05U5HP123456",
+    renavam: "00789012345",
+    fuel: "flex",
     mileage: 112000,
+    status: "ativo",
     journeyStage: "em_execucao",
     journeyStageUpdatedAt: "2026-06-11T08:00:00-03:00",
   },
@@ -136,7 +189,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Corolla",
     year: 2021,
     color: "Preto",
+    chassi: "9BRBL3HE5M5123456",
+    renavam: "00890123456",
+    fuel: "flex",
     mileage: 35600,
+    status: "ativo",
     journeyStage: "em_execucao",
     journeyStageUpdatedAt: "2026-06-11T08:00:00-03:00",
   },
@@ -149,7 +206,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Kwid",
     year: 2019,
     color: "Vermelho",
+    chassi: "93Y5SR6V0K1234567",
+    renavam: "00901234567",
+    fuel: "flex",
     mileage: 74300,
+    status: "ativo",
     journeyStage: "pronto_para_retirada",
     journeyStageUpdatedAt: "2026-06-11T10:00:00-03:00",
   },
@@ -162,7 +223,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Ka",
     year: 2020,
     color: "Branco",
+    chassi: "9BFZF55B0LB123456",
+    renavam: "01012345678",
+    fuel: "flex",
     mileage: 49800,
+    status: "ativo",
     journeyStage: "em_execucao",
     journeyStageUpdatedAt: "2026-06-11T07:00:00-03:00",
   },
@@ -175,7 +240,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Tracker",
     year: 2022,
     color: "Azul",
+    chassi: "9BGKE48U0NG123456",
+    renavam: "01123456789",
+    fuel: "flex",
     mileage: 19400,
+    status: "ativo",
     journeyStage: "em_execucao",
     journeyStageUpdatedAt: "2026-06-10T14:30:00-03:00",
   },
@@ -188,7 +257,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Creta",
     year: 2023,
     color: "Branco",
+    chassi: "9BHCH51EAPP123456",
+    renavam: "01234567890",
+    fuel: "flex",
     mileage: 12100,
+    status: "ativo",
     journeyStage: "aguardando_vistoria",
     journeyStageUpdatedAt: "2026-06-11T08:30:00-03:00",
   },
@@ -201,7 +274,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Actros",
     year: 2019,
     color: "Branco",
+    chassi: "9BM694019KB123456",
+    renavam: "01345678901",
+    fuel: "diesel",
     mileage: 198000,
+    status: "ativo",
     journeyStage: "em_execucao",
     journeyStageUpdatedAt: "2026-06-10T09:00:00-03:00",
   },
@@ -214,7 +291,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Hilux",
     year: 2020,
     color: "Cinza",
+    chassi: "8AJDB8CD9L1234567",
+    renavam: "01456789012",
+    fuel: "diesel",
     mileage: 81200,
+    status: "ativo",
     journeyStage: "em_vistoria",
     journeyStageUpdatedAt: "2026-06-11T09:45:00-03:00",
   },
@@ -227,7 +308,11 @@ export const VEHICLES: Vehicle[] = [
     model: "Strada",
     year: 2021,
     color: "Branco",
+    chassi: "9BD5818A0M1234567",
+    renavam: "01567890123",
+    fuel: "flex",
     mileage: 63500,
+    status: "ativo",
     journeyStage: "aguardando_peca",
     journeyStageUpdatedAt: "2026-06-09T13:00:00-03:00",
   },

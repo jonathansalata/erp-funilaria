@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { CashFlowView } from "@/components/financeiro/cash-flow-view";
 
 export default function FluxoDeCaixaPage() {
-  return (
-    <PlaceholderPage
-      title="Fluxo de Caixa"
-      description="Movimentações de entrada e saída consolidadas por período."
-    />
-  );
+  return <CashFlowView />;
 }

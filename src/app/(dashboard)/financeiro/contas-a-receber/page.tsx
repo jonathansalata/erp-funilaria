@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { ReceivablesView } from "@/components/financeiro/receivables-view";
 
 export default function ContasReceberPage() {
-  return (
-    <PlaceholderPage
-      title="Contas a Receber"
-      description="Títulos a receber de clientes, vinculados a orçamentos e ordens de serviço."
-    />
-  );
+  return <ReceivablesView />;
 }

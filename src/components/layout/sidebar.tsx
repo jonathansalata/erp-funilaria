@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { SidebarVersion } from "@/components/layout/sidebar-version";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -25,7 +26,7 @@ export function Sidebar() {
         sidebarCollapsed ? "w-16" : "w-64",
       )}
     >
-      <div className="flex h-16 items-center gap-2 px-4">
+      <div className="flex h-16 shrink-0 items-center gap-2 px-4">
         <div className="bg-sidebar-primary text-sidebar-primary-foreground font-heading flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-bold">
           EF
         </div>
@@ -34,9 +35,9 @@ export function Sidebar() {
         )}
       </div>
 
-      <Separator className="bg-sidebar-border" />
+      <Separator className="bg-sidebar-border shrink-0" />
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <TooltipProvider>
           <nav className="flex flex-col gap-4 px-2 py-4">
             {NAV_GROUPS.map((group) => {
@@ -102,9 +103,9 @@ export function Sidebar() {
         </TooltipProvider>
       </ScrollArea>
 
-      <Separator className="bg-sidebar-border" />
+      <Separator className="bg-sidebar-border shrink-0" />
 
-      <div className="p-2">
+      <div className="shrink-0 p-2">
         <button
           type="button"
           onClick={toggleSidebar}
@@ -119,6 +120,13 @@ export function Sidebar() {
             </>
           )}
         </button>
+
+        {!sidebarCollapsed && (
+          <>
+            <Separator className="bg-sidebar-border my-2" />
+            <SidebarVersion />
+          </>
+        )}
       </div>
     </aside>
   );

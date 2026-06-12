@@ -1,25 +1,26 @@
+"use client";
+
 import Link from "next/link";
-import { Car, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { ClientsListTable } from "@/components/clientes/clients-list-table";
 import { Button } from "@/components/ui/button";
-import { CLIENTS } from "@/lib/mock-data/clients";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 export default function ClientesPage() {
+  const clients = useErpDataStore((state) => state.clients);
+  const quotes = useErpDataStore((state) => state.quotes);
+  const serviceOrders = useErpDataStore((state) => state.serviceOrders);
+  const receivables = useErpDataStore((state) => state.receivables);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold">Clientes & Veículos</h1>
-          <p className="text-muted-foreground text-sm">
-            Cadastro de clientes e veículos vinculados.
-          </p>
+          <h1 className="font-heading text-2xl font-semibold">Clientes</h1>
+          <p className="text-muted-foreground text-sm">Cadastro e CRM de clientes da oficina.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" render={<Link href="/veiculos" />}>
-            <Car />
-            Ver veículos
-          </Button>
           <Button render={<Link href="/clientes/novo" />}>
             <Plus />
             Novo cliente
@@ -27,7 +28,12 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      <ClientsListTable clients={CLIENTS} />
+      <ClientsListTable
+        clients={clients}
+        quotes={quotes}
+        serviceOrders={serviceOrders}
+        receivables={receivables}
+      />
     </div>
   );
 }

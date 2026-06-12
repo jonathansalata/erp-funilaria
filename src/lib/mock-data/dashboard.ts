@@ -1,5 +1,11 @@
 import type { StatusVariant } from "@/components/shared/status-badge";
 import { getClientById } from "@/lib/mock-data/clients";
+import {
+  getDreSummary,
+  getReceivablesSummary,
+  type Payable,
+  type Receivable,
+} from "@/lib/mock-data/financeiro";
 import { INSPECTIONS } from "@/lib/mock-data/inspections";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
 import { calculateQuoteTotal, type Quote } from "@/lib/mock-data/quotes-data";
@@ -78,36 +84,76 @@ export function getOperationalKpis(
 export type ManagerialKpi = {
   title: string;
   value: string;
-  trend: { value: string; direction: "up" | "down" };
+  trend?: { value: string; direction: "up" | "down" };
   description: string;
 };
 
-export const MANAGERIAL_KPIS: ManagerialKpi[] = [
-  {
-    title: "Faturamento do mês",
-    value: "R$ 84.320,00",
-    trend: { value: "+12,4%", direction: "up" },
-    description: "vs. mês anterior",
-  },
-  {
-    title: "Ticket médio",
-    value: "R$ 2.180,00",
-    trend: { value: "+3,1%", direction: "up" },
-    description: "vs. mês anterior",
-  },
-  {
-    title: "Taxa de conversão de orçamentos",
-    value: "62%",
-    trend: { value: "-4 p.p.", direction: "down" },
-    description: "vs. mês anterior",
-  },
-  {
-    title: "Contas a receber em atraso",
-    value: "R$ 6.540,00",
-    trend: { value: "+1,2%", direction: "down" },
-    description: "5 títulos vencidos",
-  },
-];
+/**
+ * KPIs do Dashboard Gerencial calculados a partir de Orçamentos, Ordens de Serviço e
+ * Financeiro (Contas a Receber/Pagar) do mês de referência (Fase 2A, MÓDULO 07).
+ */
+export function getManagerialKpis(
+  quotes: Quote[],
+  serviceOrders: ServiceOrder[],
+  receivables: Receivable[],
+  payables: Payable[],
+): ManagerialKpi[] {
+  const monthPrefix = REFERENCE_DATE.slice(0, 7);
+  const dre = getDreSummary(receivables, payables, monthPrefix);
+  const { totalAberto } = getReceivablesSummary(receivables);
+
+  const billedThisMonth = receivables.filter(
+    (item) => item.status !== "cancelado" && item.dueDate.startsWith(monthPrefix),
+  );
+  const ticketMedio = billedThisMonth.length > 0 ? dre.receitaBruta / billedThisMonth.length : 0;
+
+  const consideredQuotes = quotes.filter((quote) => quote.status !== "rascunho");
+  const approvedQuotes = quotes.filter((quote) => quote.status === "aprovado");
+  const conversao =
+    consideredQuotes.length > 0 ? (approvedQuotes.length / consideredQuotes.length) * 100 : 0;
+
+  const osConcluidas = serviceOrders.filter(
+    (order) => order.status === "finalizado" || order.status === "entregue",
+  ).length;
+
+  return [
+    {
+      title: "Faturamento do mês",
+      value: formatCurrency(dre.receitaBruta),
+      description: "Receita bruta no mês de referência",
+    },
+    {
+      title: "Ticket médio",
+      value: formatCurrency(ticketMedio),
+      description: "Valor médio por título faturado",
+    },
+    {
+      title: "Conversão de orçamentos",
+      value: `${conversao.toFixed(0)}%`,
+      description: "Aprovados sobre orçamentos enviados",
+    },
+    {
+      title: "OS concluídas",
+      value: String(osConcluidas),
+      description: "Finalizadas ou entregues",
+    },
+    {
+      title: "Receita prevista",
+      value: formatCurrency(totalAberto),
+      description: "Total a receber (aberto + parcial)",
+    },
+    {
+      title: "Despesas do mês",
+      value: formatCurrency(dre.despesas),
+      description: "Despesas operacionais no período",
+    },
+    {
+      title: "Lucro estimado",
+      value: formatCurrency(dre.lucro),
+      description: "Resultado líquido do mês",
+    },
+  ];
+}
 
 export type JourneyStageSummary = {
   id: JourneyStage;

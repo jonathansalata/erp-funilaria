@@ -23,6 +23,29 @@ export function formatRelativeTime(iso: string): string {
   return formatDistanceToNow(new Date(iso), { locale: ptBR, addSuffix: true });
 }
 
+/** Gera e baixa um arquivo CSV a partir de cabeçalhos e linhas de dados. */
+export function downloadCsv(
+  filename: string,
+  headers: string[],
+  rows: (string | number)[][],
+): void {
+  const escapeCell = (cell: string | number) => {
+    const text = String(cell);
+    return /[",\n;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+
+  const lines = [headers, ...rows].map((row) => row.map(escapeCell).join(";"));
+  const csvContent = `﻿${lines.join("\n")}`;
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];

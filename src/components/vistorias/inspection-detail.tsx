@@ -41,9 +41,12 @@ export function InspectionDetail({ inspection }: InspectionDetailProps) {
   const [checklist, setChecklist] = useState<ChecklistItem[]>(inspection.checklist);
   const [photos, setPhotos] = useState(inspection.photos);
 
+  const storeEvents = useErpDataStore((state) => state.events);
   const client = getClientById(inspection.clientId);
   const vehicle = getVehicleById(inspection.vehicleId);
-  const events = getEventsForEntity("inspection", inspection.id).map(mapEntityEventToTimelineEntry);
+  const events = getEventsForEntity(storeEvents, "inspection", inspection.id).map(
+    mapEntityEventToTimelineEntry,
+  );
 
   function toggleChecklistItem(id: string, done: boolean) {
     setChecklist((current) => current.map((item) => (item.id === id ? { ...item, done } : item)));

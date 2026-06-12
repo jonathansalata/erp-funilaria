@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Banknote,
   CalendarDays,
+  Car,
   ClipboardCheck,
   CreditCard,
   FileBarChart,
@@ -63,10 +64,14 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Cadastros",
-    items: [{ title: "Clientes & Veículos", href: "/clientes", icon: Users, module: "clientes" }],
+    items: [
+      { title: "Clientes", href: "/clientes", icon: Users, module: "clientes" },
+      { title: "Veículos", href: "/veiculos", icon: Car, module: "clientes" },
+    ],
   },
   {
     title: "Financeiro",
+    defaultCollapsed: true,
     items: [
       {
         title: "Contas a Receber",

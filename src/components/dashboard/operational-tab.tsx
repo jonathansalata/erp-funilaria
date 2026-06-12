@@ -17,6 +17,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  APPOINTMENT_TYPE_META,
+  getTodayDeliveries,
+  getUpcomingAppointments,
+} from "@/lib/mock-data/appointments";
+import {
   getOperationalKpis,
   getRecentQuotes,
   getUpcomingDeliveries,
@@ -27,18 +32,21 @@ import { useErpDataStore } from "@/stores/erp-data-store";
 
 const OPERATIONAL_ICONS = [Wrench, ClipboardCheck, Receipt, CalendarClock];
 
-const RECENT_ACTIVITY = getRecentEvents(6).map(mapEntityEventToTimelineEntry);
-
 export function OperationalTab() {
   const router = useRouter();
   const quotes = useErpDataStore((state) => state.quotes);
   const serviceOrders = useErpDataStore((state) => state.serviceOrders);
   const vehicles = useErpDataStore((state) => state.vehicles);
+  const events = useErpDataStore((state) => state.events);
+  const appointments = useErpDataStore((state) => state.appointments);
 
   const operationalKpis = getOperationalKpis(quotes, serviceOrders);
   const upcomingDeliveries = getUpcomingDeliveries(serviceOrders, quotes);
   const recentQuotes = getRecentQuotes(quotes);
   const vehicleJourneySummary = getVehicleJourneySummary(vehicles);
+  const recentActivity = getRecentEvents(events, 6).map(mapEntityEventToTimelineEntry);
+  const upcomingAppointments = getUpcomingAppointments(appointments, 5);
+  const todayDeliveries = getTodayDeliveries(appointments);
 
   return (
     <div className="flex flex-col gap-6">
@@ -128,6 +136,78 @@ export function OperationalTab() {
         </Card>
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximos compromissos</CardTitle>
+            <CardDescription>
+              Agenda de entregas, vistorias, retornos e atendimentos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {upcomingAppointments.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nenhum compromisso agendado.</p>
+            ) : (
+              upcomingAppointments.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push("/agenda")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") router.push("/agenda");
+                  }}
+                  className="border-border hover:bg-muted/50 flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium">{appointment.title}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {appointment.date} · {appointment.time}
+                    </span>
+                  </div>
+                  <StatusBadge variant={APPOINTMENT_TYPE_META[appointment.type].variant}>
+                    {APPOINTMENT_TYPE_META[appointment.type].label}
+                  </StatusBadge>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Entregas do dia</CardTitle>
+            <CardDescription>Veículos com entrega agendada para hoje</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {todayDeliveries.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nenhuma entrega agendada para hoje.</p>
+            ) : (
+              todayDeliveries.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push("/agenda")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") router.push("/agenda");
+                  }}
+                  className="border-border hover:bg-muted/50 flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium">{appointment.title}</span>
+                    {appointment.notes && (
+                      <span className="text-muted-foreground text-xs">{appointment.notes}</span>
+                    )}
+                  </div>
+                  <span className="font-heading text-sm font-semibold">{appointment.time}</span>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Orçamentos recentes</CardTitle>
@@ -171,7 +251,7 @@ export function OperationalTab() {
           <CardDescription>Últimas movimentações em orçamentos, OS e vistorias</CardDescription>
         </CardHeader>
         <CardContent>
-          <Timeline entries={RECENT_ACTIVITY} />
+          <Timeline entries={recentActivity} />
         </CardContent>
       </Card>
     </div>

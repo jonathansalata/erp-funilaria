@@ -11,13 +11,32 @@ type VehicleDetailViewProps = {
 
 export function VehicleDetailView({ id }: VehicleDetailViewProps) {
   const vehicle = useErpDataStore((state) => state.vehicles.find((item) => item.id === id));
+  const client = useErpDataStore((state) =>
+    state.clients.find((item) => item.id === vehicle?.clientId),
+  );
   const inspections = useErpDataStore((state) =>
     state.inspections.filter((inspection) => inspection.vehicleId === id),
   );
+  const quotes = useErpDataStore((state) => state.quotes.filter((quote) => quote.vehicleId === id));
+  const serviceOrders = useErpDataStore((state) =>
+    state.serviceOrders.filter((order) => order.vehicleId === id),
+  );
+  const receivables = useErpDataStore((state) => state.receivables);
+  const events = useErpDataStore((state) => state.events);
 
   if (!vehicle) {
     notFound();
   }
 
-  return <VehicleDetail vehicle={vehicle} inspections={inspections} />;
+  return (
+    <VehicleDetail
+      vehicle={vehicle}
+      client={client}
+      inspections={inspections}
+      quotes={quotes}
+      serviceOrders={serviceOrders}
+      receivables={receivables}
+      events={events}
+    />
+  );
 }

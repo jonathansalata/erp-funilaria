@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { PayablesView } from "@/components/financeiro/payables-view";
 
 export default function ContasPagarPage() {
-  return (
-    <PlaceholderPage
-      title="Contas a Pagar"
-      description="Títulos a pagar a fornecedores e despesas da oficina."
-    />
-  );
+  return <PayablesView />;
 }

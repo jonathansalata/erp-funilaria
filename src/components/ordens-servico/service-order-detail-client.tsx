@@ -50,10 +50,13 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
   const [checklist, setChecklist] = useState<ChecklistItem[]>(order.checklist);
   const [photos, setPhotos] = useState(order.photos);
 
+  const storeEvents = useErpDataStore((state) => state.events);
   const client = getClientById(order.clientId);
   const vehicle = getVehicleById(order.vehicleId);
   const total = calculateServiceOrderTotal(order.items);
-  const events = getEventsForEntity("service_order", order.id).map(mapEntityEventToTimelineEntry);
+  const events = getEventsForEntity(storeEvents, "service_order", order.id).map(
+    mapEntityEventToTimelineEntry,
+  );
   const statusHistoryEntries: TimelineEntry[] = statusHistory.map((event) => ({
     id: event.id,
     title: `${SERVICE_ORDER_STATUS_META[event.from as ServiceOrderStatus]?.title ?? event.from} → ${SERVICE_ORDER_STATUS_META[event.to as ServiceOrderStatus]?.title ?? event.to}`,

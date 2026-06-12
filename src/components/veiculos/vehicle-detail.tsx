@@ -1,52 +1,131 @@
-import Link from "next/link";
+"use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Pencil, Power, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { EntityHeader } from "@/components/shared/entity-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline } from "@/components/shared/timeline";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getClientById } from "@/lib/mock-data/clients";
-import { getVehicleTimeline, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { VehicleEditDialog } from "@/components/veiculos/vehicle-edit-dialog";
+import type { Client } from "@/lib/mock-data/clients";
+import { canDeleteVehicle, getVehicleFinancialSummary } from "@/lib/mock-data/crm";
+import {
+  type EntityEvent,
+  getVehicleTimeline,
+  mapEntityEventToTimelineEntry,
+} from "@/lib/mock-data/entity-events";
+import type { Receivable } from "@/lib/mock-data/financeiro";
 import { INSPECTION_STATUS_META, type Inspection } from "@/lib/mock-data/inspections";
 import { QUOTE_STATUS_META } from "@/lib/mock-data/quotes";
-import { QUOTES, calculateQuoteTotal } from "@/lib/mock-data/quotes-data";
+import { calculateQuoteTotal, type Quote } from "@/lib/mock-data/quotes-data";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
-import { SERVICE_ORDERS } from "@/lib/mock-data/service-orders-data";
-import { JOURNEY_STAGE_META, getVehicleLabel, type Vehicle } from "@/lib/mock-data/vehicles";
+import { calculateServiceOrderTotal, type ServiceOrder } from "@/lib/mock-data/service-orders-data";
+import {
+  FUEL_TYPE_LABELS,
+  JOURNEY_STAGE_META,
+  VEHICLE_STATUS_META,
+  getVehicleLabel,
+  type Vehicle,
+} from "@/lib/mock-data/vehicles";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { useErpDataStore } from "@/stores/erp-data-store";
 
 type VehicleDetailProps = {
   vehicle: Vehicle;
+  client?: Client;
   inspections: Inspection[];
+  quotes: Quote[];
+  serviceOrders: ServiceOrder[];
+  receivables: Receivable[];
+  events: EntityEvent[];
 };
 
-export function VehicleDetail({ vehicle, inspections }: VehicleDetailProps) {
-  const client = getClientById(vehicle.clientId);
-  const quotes = QUOTES.filter((quote) => quote.vehicleId === vehicle.id);
-  const serviceOrders = SERVICE_ORDERS.filter((order) => order.vehicleId === vehicle.id);
-  const events = getVehicleTimeline(vehicle.id).map(mapEntityEventToTimelineEntry);
+export function VehicleDetail({
+  vehicle,
+  client,
+  inspections,
+  quotes,
+  serviceOrders,
+  receivables,
+  events: storeEvents,
+}: VehicleDetailProps) {
+  const router = useRouter();
+  const changeVehicleStatus = useErpDataStore((state) => state.changeVehicleStatus);
+  const deleteVehicle = useErpDataStore((state) => state.deleteVehicle);
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  const events = getVehicleTimeline(storeEvents, vehicle.id).map(mapEntityEventToTimelineEntry);
+  const financialSummary = getVehicleFinancialSummary(
+    vehicle.id,
+    quotes,
+    serviceOrders,
+    receivables,
+  );
+  const statusMeta = VEHICLE_STATUS_META[vehicle.status];
 
   return (
     <div className="flex flex-col gap-6">
       <EntityHeader
         title={getVehicleLabel(vehicle)}
         code={vehicle.code}
-        status={
-          vehicle.journeyStage
-            ? {
-                label: JOURNEY_STAGE_META[vehicle.journeyStage].label,
-                variant: JOURNEY_STAGE_META[vehicle.journeyStage].variant,
-              }
-            : undefined
-        }
+        status={{ label: statusMeta.label, variant: statusMeta.variant }}
         description={`Placa: ${vehicle.plate}`}
         backHref={client ? `/clientes/${client.id}` : "/veiculos"}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setIsEditOpen(true)}>
+              <Pencil />
+              Editar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                changeVehicleStatus(vehicle.id, vehicle.status === "ativo" ? "inativo" : "ativo")
+              }
+            >
+              <Power />
+              {vehicle.status === "ativo" ? "Inativar" : "Ativar"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!canDeleteVehicle(vehicle.id, quotes, serviceOrders, inspections)) {
+                  toast.error(
+                    "Este veículo possui vistoria, orçamento ou OS vinculado. Apenas a inativação é permitida.",
+                  );
+                  return;
+                }
+                setIsDeleteOpen(true);
+              }}
+            >
+              <Trash2 />
+              Excluir
+            </Button>
+          </>
+        }
       />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="flex flex-col gap-6 xl:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Especificações</CardTitle>
+              <CardTitle>Dados do Veículo</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
               <div className="flex justify-between">
@@ -73,95 +152,172 @@ export function VehicleDetail({ vehicle, inspections }: VehicleDetailProps) {
                 <span className="text-muted-foreground">KM</span>
                 <span>{vehicle.mileage.toLocaleString("pt-BR")}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Chassi</span>
+                <span>{vehicle.chassi ?? "-"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Renavam</span>
+                <span>{vehicle.renavam ?? "-"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Combustível</span>
+                <span>{vehicle.fuel ? FUEL_TYPE_LABELS[vehicle.fuel] : "-"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Jornada atual</span>
+                <span>
+                  {vehicle.journeyStage ? (
+                    <StatusBadge variant={JOURNEY_STAGE_META[vehicle.journeyStage].variant}>
+                      {JOURNEY_STAGE_META[vehicle.journeyStage].label}
+                    </StatusBadge>
+                  ) : (
+                    "Fora do pátio"
+                  )}
+                </span>
+              </div>
+              {vehicle.notes && (
+                <div className="flex flex-col gap-1 pt-2 sm:col-span-2">
+                  <span className="text-muted-foreground">Observações</span>
+                  <p>{vehicle.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Vistorias</CardTitle>
+              <CardTitle>Histórico de Vistorias</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
+            <CardContent>
               {inspections.length === 0 ? (
                 <p className="text-muted-foreground text-sm">Nenhuma vistoria registrada.</p>
               ) : (
-                inspections.map((inspection) => (
-                  <Link
-                    key={inspection.id}
-                    href={`/vistorias/${inspection.id}`}
-                    className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{inspection.code}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {formatDateTime(inspection.createdAt)}
-                      </span>
-                    </div>
-                    <StatusBadge variant={INSPECTION_STATUS_META[inspection.status].variant}>
-                      {INSPECTION_STATUS_META[inspection.status].title}
-                    </StatusBadge>
-                  </Link>
-                ))
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {inspections.map((inspection) => (
+                      <TableRow
+                        key={inspection.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/vistorias/${inspection.id}`)}
+                      >
+                        <TableCell className="font-medium">{inspection.code}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateTime(inspection.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge variant={INSPECTION_STATUS_META[inspection.status].variant}>
+                            {INSPECTION_STATUS_META[inspection.status].title}
+                          </StatusBadge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Orçamentos & Ordens de Serviço</CardTitle>
+              <CardTitle>Histórico de Orçamentos</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {quotes.length === 0 && serviceOrders.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Nenhum orçamento ou OS registrado.</p>
+            <CardContent>
+              {quotes.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Nenhum orçamento registrado.</p>
               ) : (
-                <>
-                  {quotes.map((quote) => (
-                    <Link
-                      key={quote.id}
-                      href={`/orcamentos/${quote.id}`}
-                      className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium">{quote.code}</span>
-                        <span className="text-muted-foreground text-xs">Orçamento</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quotes.map((quote) => (
+                      <TableRow
+                        key={quote.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/orcamentos/${quote.id}`)}
+                      >
+                        <TableCell className="font-medium">{quote.code}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(quote.updatedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge variant={QUOTE_STATUS_META[quote.status].variant}>
+                            {QUOTE_STATUS_META[quote.status].title}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell className="text-right">
                           {formatCurrency(calculateQuoteTotal(quote.items).total)}
-                        </span>
-                        <StatusBadge variant={QUOTE_STATUS_META[quote.status].variant}>
-                          {QUOTE_STATUS_META[quote.status].title}
-                        </StatusBadge>
-                      </div>
-                    </Link>
-                  ))}
-                  {serviceOrders.map((order) => (
-                    <Link
-                      key={order.id}
-                      href={`/ordens-servico/${order.id}`}
-                      className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium">{order.code}</span>
-                        <span className="text-muted-foreground text-xs">Ordem de serviço</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs">
-                          Previsão: {formatDate(order.dueDate)}
-                        </span>
-                        <StatusBadge variant={SERVICE_ORDER_STATUS_META[order.status].variant}>
-                          {SERVICE_ORDER_STATUS_META[order.status].title}
-                        </StatusBadge>
-                      </div>
-                    </Link>
-                  ))}
-                </>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Histórico</CardTitle>
+              <CardTitle>Histórico de Ordens de Serviço</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {serviceOrders.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Nenhuma ordem de serviço registrada.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Previsão</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {serviceOrders.map((order) => (
+                      <TableRow
+                        key={order.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/ordens-servico/${order.id}`)}
+                      >
+                        <TableCell className="font-medium">{order.code}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(order.dueDate)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge variant={SERVICE_ORDER_STATUS_META[order.status].variant}>
+                            {SERVICE_ORDER_STATUS_META[order.status].title}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(calculateServiceOrderTotal(order.items))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Timeline do Veículo</CardTitle>
             </CardHeader>
             <CardContent>
               <Timeline entries={events} />
@@ -191,28 +347,46 @@ export function VehicleDetail({ vehicle, inspections }: VehicleDetailProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Jornada atual</CardTitle>
+              <CardTitle>Histórico Financeiro</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm">
-              {vehicle.journeyStage ? (
-                <>
-                  <StatusBadge variant={JOURNEY_STAGE_META[vehicle.journeyStage].variant}>
-                    {JOURNEY_STAGE_META[vehicle.journeyStage].label}
-                  </StatusBadge>
-                  {vehicle.journeyStageUpdatedAt && (
-                    <div className="flex justify-between pt-1">
-                      <span className="text-muted-foreground">Atualizado em</span>
-                      <span>{formatDateTime(vehicle.journeyStageUpdatedAt)}</span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-muted-foreground">Veículo fora do pátio.</p>
-              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total faturado</span>
+                <span>{formatCurrency(financialSummary.totalFaturado)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total recebido</span>
+                <span>{formatCurrency(financialSummary.totalRecebido)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Saldo pendente</span>
+                <span>{formatCurrency(financialSummary.saldoPendente)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Último pagamento</span>
+                <span>
+                  {financialSummary.lastPaymentAt
+                    ? formatDate(financialSummary.lastPaymentAt)
+                    : "-"}
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <VehicleEditDialog open={isEditOpen} onOpenChange={setIsEditOpen} vehicle={vehicle} />
+
+      <ConfirmDeleteDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onConfirm={() => {
+          deleteVehicle(vehicle.id);
+          toast.success("Veículo excluído com sucesso.");
+          router.push(client ? `/clientes/${client.id}` : "/veiculos");
+        }}
+        itemLabel={`o veículo ${vehicle.plate}`}
+      />
     </div>
   );
 }

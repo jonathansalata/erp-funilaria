@@ -1,11 +1,14 @@
 import {
+  Ban,
   CheckSquare,
   FilePlus,
   MessageSquare,
   type LucideIcon,
   Paperclip,
+  Pencil,
   PlusCircle,
   RefreshCw,
+  Trash2,
   Wrench,
 } from "lucide-react";
 
@@ -16,13 +19,16 @@ export type EntityType = "client" | "vehicle" | "quote" | "service_order" | "ins
 
 export type EntityEventType =
   | "created"
+  | "updated"
   | "status_changed"
   | "note_added"
   | "file_uploaded"
   | "appointment_scheduled"
   | "payment_received"
   | "converted_to_os"
-  | "checklist_updated";
+  | "checklist_updated"
+  | "inactivated"
+  | "deleted";
 
 export type EntityEvent = {
   id: string;
@@ -36,8 +42,9 @@ export type EntityEvent = {
   createdAt: string;
 };
 
-const EVENT_ICONS: Record<EntityEventType, LucideIcon> = {
+export const EVENT_ICONS: Record<EntityEventType, LucideIcon> = {
   created: PlusCircle,
+  updated: Pencil,
   status_changed: RefreshCw,
   note_added: MessageSquare,
   file_uploaded: Paperclip,
@@ -45,10 +52,13 @@ const EVENT_ICONS: Record<EntityEventType, LucideIcon> = {
   payment_received: FilePlus,
   converted_to_os: Wrench,
   checklist_updated: CheckSquare,
+  inactivated: Ban,
+  deleted: Trash2,
 };
 
-const EVENT_VARIANTS: Record<EntityEventType, StatusVariant> = {
+export const EVENT_VARIANTS: Record<EntityEventType, StatusVariant> = {
   created: "default",
+  updated: "info",
   status_changed: "info",
   note_added: "default",
   file_uploaded: "default",
@@ -56,6 +66,30 @@ const EVENT_VARIANTS: Record<EntityEventType, StatusVariant> = {
   payment_received: "success",
   converted_to_os: "primary",
   checklist_updated: "success",
+  inactivated: "warning",
+  deleted: "destructive",
+};
+
+export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
+  client: "Cliente",
+  vehicle: "Veículo",
+  quote: "Orçamento",
+  service_order: "Ordem de Serviço",
+  inspection: "Vistoria",
+};
+
+export const EVENT_TYPE_LABELS: Record<EntityEventType, string> = {
+  created: "Criação",
+  updated: "Atualização",
+  status_changed: "Mudança de status",
+  note_added: "Observação",
+  file_uploaded: "Anexo",
+  appointment_scheduled: "Agendamento",
+  payment_received: "Pagamento",
+  converted_to_os: "Conversão em OS",
+  checklist_updated: "Checklist",
+  inactivated: "Inativação",
+  deleted: "Exclusão",
 };
 
 export const ENTITY_EVENTS: EntityEvent[] = [
@@ -754,30 +788,38 @@ export const ENTITY_EVENTS: EntityEvent[] = [
   },
 ];
 
-export function getEventsForEntity(entityType: EntityType, entityId: string): EntityEvent[] {
-  return ENTITY_EVENTS.filter(
-    (event) => event.entityType === entityType && event.entityId === entityId,
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+export function getEventsForEntity(
+  events: EntityEvent[],
+  entityType: EntityType,
+  entityId: string,
+): EntityEvent[] {
+  return events
+    .filter((event) => event.entityType === entityType && event.entityId === entityId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-export function getVehicleTimeline(vehicleId: string): EntityEvent[] {
-  return ENTITY_EVENTS.filter(
-    (event) =>
-      event.metadata?.vehicleId === vehicleId ||
-      (event.entityType === "vehicle" && event.entityId === vehicleId),
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+export function getVehicleTimeline(events: EntityEvent[], vehicleId: string): EntityEvent[] {
+  return events
+    .filter(
+      (event) =>
+        event.metadata?.vehicleId === vehicleId ||
+        (event.entityType === "vehicle" && event.entityId === vehicleId),
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-export function getClientTimeline(clientId: string): EntityEvent[] {
-  return ENTITY_EVENTS.filter(
-    (event) =>
-      event.metadata?.clientId === clientId ||
-      (event.entityType === "client" && event.entityId === clientId),
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+export function getClientTimeline(events: EntityEvent[], clientId: string): EntityEvent[] {
+  return events
+    .filter(
+      (event) =>
+        event.metadata?.clientId === clientId ||
+        (event.entityType === "client" && event.entityId === clientId),
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-export function getRecentEvents(limit: number): EntityEvent[] {
-  return [...ENTITY_EVENTS]
+export function getRecentEvents(events: EntityEvent[], limit: number): EntityEvent[] {
+  return [...events]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 }
