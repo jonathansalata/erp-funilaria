@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CLIENTS } from "@/lib/mock-data/clients";
+import { CLIENTS, getClientById } from "@/lib/mock-data/clients";
 import type { Receivable } from "@/lib/mock-data/financeiro";
 
 export type ReceivableFormValues = {
@@ -109,7 +109,9 @@ export function ReceivableFormDialog({
                 }
               >
                 <SelectTrigger id="receivable-client" className="w-full">
-                  <SelectValue placeholder="Selecione o cliente" />
+                  <SelectValue placeholder="Selecione o cliente">
+                    {(value) => getClientById(value as string)?.name ?? "Selecione o cliente"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CLIENTS.map((client) => (

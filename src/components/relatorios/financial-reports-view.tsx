@@ -549,7 +549,11 @@ export function FinancialReportsView() {
           <Label htmlFor="fr-client">Cliente</Label>
           <Select value={clientId} onValueChange={(value) => value && setClientId(value as string)}>
             <SelectTrigger id="fr-client" className="w-full">
-              <SelectValue placeholder="Cliente" />
+              <SelectValue placeholder="Cliente">
+                {(value) =>
+                  value === "all" ? "Todos" : (getClientById(value as string)?.name ?? "Cliente")
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
@@ -568,7 +572,9 @@ export function FinancialReportsView() {
             onValueChange={(value) => value && setVehicleId(value as string)}
           >
             <SelectTrigger id="fr-vehicle" className="w-full">
-              <SelectValue placeholder="Veículo" />
+              <SelectValue placeholder="Veículo">
+                {(value) => (value === "all" ? "Todos" : getVehicleLabelById(value as string))}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>

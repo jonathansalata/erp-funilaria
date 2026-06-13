@@ -78,7 +78,17 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/configuracoes)",
       "Bash(jobs)",
       "Bash(cd \"/c/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026\" && grep -n \"v1.5\\\\|v1.4\\\\|## Changelog\\\\|Changelog\" docs/ARCHITECTURE.md | head -20)",
-      "Read(//c/c/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026/docs/**)"
+      "Read(//c/c/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026/docs/**)",
+      "Bash(tasklist)",
+      "Bash(curl -s \"http://localhost:3000/financeiro/contas-a-pagar?status=vencido\" -o /tmp/page2.html -w \"%{http_code}\\\\n\")",
+      "Bash(grep -o \"Companhia de [^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|AutoPe[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Oficina Mec[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Folha de pagamento\\\\|Imobili[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Receita Federal\\\\|Tintas[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Provedora[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Distribuidora de EPIs\" /tmp/page2.html)",
+      "Bash(curl -s \"http://localhost:3000/financeiro/contas-a-pagar\" -o /tmp/page3.html -w \"%{http_code}\\\\n\")",
+      "Bash(grep -o \"Companhia de [^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|AutoPe[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Oficina Mec[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Folha de pagamento\\\\|Imobili[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Receita Federal\\\\|Tintas[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Provedora[^\\\\\"\\\\\\\\\\\\\\\\]*\\\\|Distribuidora de EPIs\" /tmp/page3.html)",
+      "Bash(grep -o \"Vencidos</span>.\\\\{0,300\\\\}\" /tmp/page3.html)",
+      "PowerShell(npm run typecheck 2>&1)",
+      "PowerShell(npm run lint 2>&1)",
+      "PowerShell(npm run build 2>&1)",
+      "Bash(curl -s \"http://localhost:3000/financeiro/contas-a-pagar?status=vencido\" -o /tmp/page4.html)"
     ],
     "additionalDirectories": ["\\tmp"]
   }

@@ -144,7 +144,14 @@ export function DataTable<T>({
             }}
           >
             <SelectTrigger size="sm">
-              <SelectValue placeholder={filter.label} />
+              <SelectValue placeholder={filter.label}>
+                {(value) =>
+                  value === "all"
+                    ? `${filter.label}: Todos`
+                    : (filter.options.find((option) => option.value === value)?.label ??
+                      filter.label)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{filter.label}: Todos</SelectItem>

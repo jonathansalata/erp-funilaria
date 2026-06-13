@@ -3,6 +3,86 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Fase 2B.8 — Refinamentos Operacionais e UX Financeiro (2026-06-13)
+
+Fase de ajustes pontuais em Financeiro e Relatórios, sem alteração de identidade visual, sem
+Supabase/Auth/RBAC e sem início da Fase 3. Itens implementados nesta fase (Blocos 24, 26, 27 e
+parte do Bloco 28); os Blocos 21 e 25 permanecem como proposta técnica (não implementados).
+
+- **Bloco 24 — KPI "Vencidos" clicável em Contas a Pagar**: `financeiro/contas-a-pagar/page.tsx`
+  passou a ser `async`, lendo `searchParams.status` e repassando como `initialStatus` para
+  `PayablesView`, no mesmo padrão já usado em Ordens de Serviço/Vistorias/Orçamentos. O filtro de
+  "Status" da `DataTable` (`payables-view.tsx`) ganhou a opção "Vencido", com `predicate` que usa
+  `isOverdue(row.dueDate, row.status, "aberto")` (não é um status persistido, é calculado). O card
+  KPI "Vencidos" agora é um `<Link href="/financeiro/contas-a-pagar?status=vencido">`, mesmo padrão
+  de `operational-tab.tsx` no Dashboard.
+- **Bloco 24.1 — Correção visual do filtro "Vencidos"**: a lógica do filtro já estava correta
+  (`vencido` continua sendo 100% calculado — `PayableStatus` permanece `"aberto"|"pago"|"cancelado"`,
+  sem novo status persistido). Dois problemas visuais davam a impressão de filtro errado: (1) a
+  coluna "Status" de `payables-view.tsx` continuava exibindo o badge "Aberto" para títulos vencidos
+  — agora exibe badge "Vencido" (variante destructive) quando `isOverdue(row.dueDate, row.status,
+"aberto")` é verdadeiro; (2) o próprio `<SelectValue>` do filtro de Status/Categoria em
+  `data-table.tsx`, sem `children`, caía no mesmo fallback de `resolveSelectedLabel` descrito no
+  Bloco 22/23/28 e exibia o `value` cru (`vencido`, `aberto`) em vez do label (`Vencido`,
+  `Aberto`) — corrigido com `children` render-prop que resolve o label via `filter.options`,
+  aplicado a todos os filtros de `DataTable` do app.
+- **Bloco 26 — Label dinâmica do campo "Fornecedor" em Contas a Pagar**: novo mapa
+  `PAYABLE_SUPPLIER_LABEL: Record<PayableCategory, string>` em `financeiro.ts` (Salários →
+  "Funcionário", Aluguel → "Beneficiário", Impostos → "Órgão/Beneficiário", demais categorias →
+  "Fornecedor"/"Beneficiário"). `payable-form-dialog.tsx` usa
+  `PAYABLE_SUPPLIER_LABEL[values.category]` no `<Label>` do campo `supplier`. Sem mudança de
+  schema/banco — o campo continua sendo `supplier: string`.
+- **Bloco 27 — Filtro Pessoa Física/Pessoa Jurídica em Relatórios > Clientes**: novo
+  `clientFilters: DataTableFilter<Client>[]` em `reports-view.tsx`, com filtro "Tipo" baseado em
+  `CLIENT_TYPE_LABELS` (`pessoa_fisica`/`pessoa_juridica`), passado via `filters={clientFilters}`
+  para o `ReportTable` da aba Clientes — reaproveita o mecanismo de filtros já existente da
+  `DataTable`.
+- **Blocos 22/23/28 (parcial) — IDs internos visíveis em selects de Financeiro/Relatórios (causa
+  raiz)**: a auditoria original havia validado apenas as **colunas de tabela** (que já usavam
+  `getClientById`/`getVehicleLabelById` corretamente). A causa real reportada está nos
+  **`<Select>` usados como filtro/campo**: o componente `SelectValue` do Base UI
+  (`@base-ui/react/select/value/SelectValue.js`), quando não recebe `children` (render-prop) nem
+  o `Select.Root` recebe a prop `items`, resolve o texto do _trigger_ via
+  `resolveSelectedLabel(value, items, itemToStringLabel)`
+  (`@base-ui/react/internals/resolveValueLabel.js`), que cai no fallback `stringifyAsLabel(value)`
+  — ou seja, exibe o **valor bruto selecionado** (ex.: `cli-006`, `vei-002`), mesmo que o
+  `<SelectItem>` correspondente no dropdown mostre o nome correto. Corrigido nos dois pontos com
+  evidência confirmada, usando a função `children` de `SelectValue` (suportada nativamente e
+  priorizada antes da resolução por `items`):
+  - `financial-reports-view.tsx` — filtros "Cliente" (`fr-client`) e "Veículo" (`fr-vehicle`)
+    passaram a resolver o label via `getClientById`/`getVehicleLabelById`.
+  - `receivable-form-dialog.tsx` — select "Cliente" do formulário de conta a receber passou a
+    resolver o label via `getClientById`.
+  - **Escopo restante do Bloco 28** (não coberto nesta fase): existem ~21 arquivos com
+    `<SelectValue>`, mas a maioria está ligada a enums com labels já legíveis (status, categorias,
+    formas de pagamento, abas). O padrão acima (children render-prop) deve ser replicado sempre
+    que um `<Select>` tiver `value` ligado a um id de entidade (`clientId`, `vehicleId`, etc.).
+- **Bloco 24.2 — Auditoria/confirmação do filtro KPI "Vencidos"**: revalidada a cadeia completa
+  `contas-a-pagar/page.tsx` → `PayablesView({ initialStatus })` → `DataTable
+initialFilters={{ status: initialStatus }}`. Confirmado, via build local e verificação no
+  servidor de desenvolvimento, que ao acessar `?status=vencido` a tabela retorna exclusivamente os
+  títulos com `status === "aberto" && isOverdue(dueDate, status, "aberto")` — o mesmo cálculo usado
+  por `getPayablesSummary` para o KPI "Vencidos" — ou seja, contador da tabela e KPI já são
+  consistentes (a lógica do Bloco 24/24.1 já cobria o requisito). Único ajuste de código deste
+  bloco: a opção do filtro de Status em `payables-view.tsx` passou de `{ label: "Vencido", value:
+"vencido" }` para `{ label: "Vencidos", value: "vencido" }` (plural, espelhando o título do card
+  KPI "Vencidos") para que o `<Select>` de Status exiba "Vencidos" quando a página é aberta via
+  `?status=vencido`.
+
+### Propostas técnicas não implementadas (Blocos 21 e 25)
+
+- **Bloco 21 — Documento de Garantia/Entrega (PDF)**: proposta revisada — persistir
+  `warrantyPeriod` (prazo de garantia) e `deliveryMileage`/`deliveredAt` (KM e data de entrega) no
+  tipo `ServiceOrder` (`service-orders-data.ts`), com edição em um bloco "Dados de Entrega" na tela
+  de detalhe da OS. O PDF de garantia (`warranty-pdf.ts`, seguindo o padrão de
+  `service-order-pdf.ts`) leria esses campos persistidos, evitando inconsistência entre o PDF
+  gerado e os dados da OS. Aguardando validação.
+- **Bloco 25 — DRE Comparativo**: duas alternativas propostas, ambas reaproveitando
+  `getDreSummary` (já pura e recebe `monthPrefix`): (A) comparativo automático "Mês Atual x Mês
+  Anterior" (sem interação do usuário, baixo risco); (B) comparativo multi-mês com seleção manual
+  de meses. Recomendação: implementar (A) nesta fase e deixar (B) para demanda futura. Aguardando
+  validação.
+
 ## Fase 2B.7 — Refinamento UX/UI Mobile Global (2026-06-13)
 
 Fase exclusivamente de refinamento da experiência **Mobile**, sem alteração de identidade visual

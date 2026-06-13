@@ -23,6 +23,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   PAYABLE_CATEGORY_LABELS,
+  PAYABLE_SUPPLIER_LABEL,
   type Payable,
   type PayableCategory,
 } from "@/lib/mock-data/financeiro";
@@ -100,7 +101,7 @@ export function PayableFormDialog({
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="payable-supplier">Fornecedor</Label>
+              <Label htmlFor="payable-supplier">{PAYABLE_SUPPLIER_LABEL[values.category]}</Label>
               <Input
                 id="payable-supplier"
                 placeholder="Ex: AutoPeças Distribuidora LTDA"

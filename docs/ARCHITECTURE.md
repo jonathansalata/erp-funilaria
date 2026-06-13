@@ -6,6 +6,18 @@
 
 ## Changelog
 
+- **v1.7** — Fase 2B.8 (refinamentos operacionais e UX financeiro, 2026-06-13): KPI "Vencidos" de
+  Contas a Pagar passa a ser clicável (`/financeiro/contas-a-pagar?status=vencido`), com filtro de
+  status "Vencido" calculado via `isOverdue`; badge "Vencido" substitui "Aberto" na coluna Status
+  quando o título está em atraso; campo "Fornecedor" do formulário de Contas a Pagar ganha label
+  dinâmica por categoria (`PAYABLE_SUPPLIER_LABEL`); Relatórios > Clientes ganha filtro Pessoa
+  Física/Jurídica; corrigida exibição de IDs internos/valores crus (`cli-006`, `vei-002`,
+  `vencido`) nos selects de Cliente/Veículo do relatório financeiro detalhado, do formulário de
+  Contas a Receber e nos filtros genéricos da `DataTable`, causa raiz identificada na resolução de
+  label do `SelectValue` (Base UI) sem `children`/`items`; opção do filtro de Status "Vencido" →
+  "Vencidos" (plural, espelhando o card KPI) e revalidação confirmando que o filtro
+  `?status=vencido` retorna exclusivamente `status === "aberto" && isOverdue(...)`, consistente com
+  o KPI. Detalhes em `DECISIONS.md`, seção "Fase 2B.8".
 - **v1.6** — Fase 2B.7 (refinamento UX/UI mobile global, 2026-06-13): `body` ganha
   `overflow-x: hidden` (nenhuma página pode gerar scroll lateral); telas de detalhe de Orçamento e
   OS recebem `min-w-0` nos containers do grid principal para conter o scroll da tabela de itens

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { FinancialReportsView } from "@/components/relatorios/financial-reports-view";
 import { ReportTable, type ReportColumn } from "@/components/relatorios/report-table";
+import { type DataTableFilter } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
   Select,
@@ -108,6 +109,15 @@ export function ReportsView() {
       cell: (row) => row.vehicleIds.length,
       csvHeader: "Qtd. veículos",
       csvValue: (row) => row.vehicleIds.length,
+    },
+  ];
+
+  const clientFilters: DataTableFilter<Client>[] = [
+    {
+      id: "type",
+      label: "Tipo",
+      options: Object.entries(CLIENT_TYPE_LABELS).map(([value, label]) => ({ label, value })),
+      predicate: (row, value) => row.type === value,
     },
   ];
 
@@ -444,6 +454,7 @@ export function ReportsView() {
             data={CLIENTS}
             columns={clientColumns}
             getRowId={(row) => row.id}
+            filters={clientFilters}
             searchPlaceholder="Buscar cliente..."
             searchFn={(row, query) =>
               row.name.toLowerCase().includes(query) || row.document.toLowerCase().includes(query)

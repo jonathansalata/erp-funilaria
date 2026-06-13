@@ -322,6 +322,17 @@ export const PAYABLE_CATEGORY_LABELS: Record<PayableCategory, string> = {
   outros: "Outros",
 };
 
+/** Label do campo "Fornecedor" do formulário de contas a pagar, ajustada conforme a categoria. */
+export const PAYABLE_SUPPLIER_LABEL: Record<PayableCategory, string> = {
+  fornecedores: "Fornecedor",
+  salarios: "Funcionário",
+  aluguel: "Beneficiário",
+  utilidades: "Fornecedor",
+  impostos: "Órgão/Beneficiário",
+  manutencao: "Fornecedor",
+  outros: "Beneficiário",
+};
+
 export type PayableStatus = "aberto" | "pago" | "cancelado";
 
 export const PAYABLE_STATUS_META: Record<PayableStatus, { label: string; variant: StatusVariant }> =

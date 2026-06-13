@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, CircleDollarSign, History, Plus, Wallet } from "lucide-react";
 
 import {
@@ -61,7 +62,11 @@ const PAYABLE_PDF_COLUMNS = [
   },
 ];
 
-export function PayablesView() {
+type PayablesViewProps = {
+  initialStatus?: string;
+};
+
+export function PayablesView({ initialStatus }: PayablesViewProps) {
   const payables = useErpDataStore((state) => state.payables);
   const createPayable = useErpDataStore((state) => state.createPayable);
   const updatePayable = useErpDataStore((state) => state.updatePayable);
@@ -189,11 +194,14 @@ export function PayablesView() {
     {
       id: "status",
       header: "Status",
-      cell: (row) => (
-        <StatusBadge variant={PAYABLE_STATUS_META[row.status].variant}>
-          {PAYABLE_STATUS_META[row.status].label}
-        </StatusBadge>
-      ),
+      cell: (row) =>
+        isOverdue(row.dueDate, row.status, "aberto") ? (
+          <StatusBadge variant="destructive">Vencido</StatusBadge>
+        ) : (
+          <StatusBadge variant={PAYABLE_STATUS_META[row.status].variant}>
+            {PAYABLE_STATUS_META[row.status].label}
+          </StatusBadge>
+        ),
     },
     {
       id: "actions",
@@ -237,11 +245,15 @@ export function PayablesView() {
     {
       id: "status",
       label: "Status",
-      options: Object.entries(PAYABLE_STATUS_META).map(([value, meta]) => ({
-        label: meta.label,
-        value,
-      })),
-      predicate: (row, value) => row.status === value,
+      options: [
+        ...Object.entries(PAYABLE_STATUS_META).map(([value, meta]) => ({
+          label: meta.label,
+          value,
+        })),
+        { label: "Vencidos", value: "vencido" },
+      ],
+      predicate: (row, value) =>
+        value === "vencido" ? isOverdue(row.dueDate, row.status, "aberto") : row.status === value,
     },
     {
       id: "category",
@@ -289,12 +301,17 @@ export function PayablesView() {
           icon={CircleDollarSign}
           description="Total pago no mês de referência"
         />
-        <KpiCard
-          title="Vencidos"
-          value={String(summary.vencidosCount)}
-          icon={AlertTriangle}
-          description={`${formatCurrency(summary.vencidosValue)} em atraso`}
-        />
+        <Link
+          href="/financeiro/contas-a-pagar?status=vencido"
+          className="transition-opacity hover:opacity-80"
+        >
+          <KpiCard
+            title="Vencidos"
+            value={String(summary.vencidosCount)}
+            icon={AlertTriangle}
+            description={`${formatCurrency(summary.vencidosValue)} em atraso`}
+          />
+        </Link>
       </div>
 
       <DataTable
@@ -304,6 +321,7 @@ export function PayablesView() {
         searchPlaceholder="Buscar por fornecedor..."
         searchFn={(row, query) => row.supplier.toLowerCase().includes(query)}
         filters={filters}
+        initialFilters={initialStatus ? { status: initialStatus } : undefined}
         emptyMessage="Nenhuma conta a pagar encontrada."
       />
 
