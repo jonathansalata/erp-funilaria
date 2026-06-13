@@ -7,7 +7,7 @@ que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Fase de ajustes pontuais em Financeiro e Relatórios, sem alteração de identidade visual, sem
 Supabase/Auth/RBAC e sem início da Fase 3. Itens implementados nesta fase (Blocos 24, 26, 27 e
-parte do Bloco 28); os Blocos 21 e 25 permanecem como proposta técnica (não implementados).
+parte do Bloco 28); os Blocos 21 e 25 foram implementados posteriormente na Fase 2B.8.3.
 
 - **Bloco 24 — KPI "Vencidos" clicável em Contas a Pagar**: `financeiro/contas-a-pagar/page.tsx`
   passou a ser `async`, lendo `searchParams.status` e repassando como `initialStatus` para
@@ -69,19 +69,50 @@ initialFilters={{ status: initialStatus }}`. Confirmado, via build local e verif
   KPI "Vencidos") para que o `<Select>` de Status exiba "Vencidos" quando a página é aberta via
   `?status=vencido`.
 
-### Propostas técnicas não implementadas (Blocos 21 e 25)
+## Fase 2B.8.3 — Consolidação Operacional Pré-Fase 3 (2026-06-13)
 
-- **Bloco 21 — Documento de Garantia/Entrega (PDF)**: proposta revisada — persistir
-  `warrantyPeriod` (prazo de garantia) e `deliveryMileage`/`deliveredAt` (KM e data de entrega) no
-  tipo `ServiceOrder` (`service-orders-data.ts`), com edição em um bloco "Dados de Entrega" na tela
-  de detalhe da OS. O PDF de garantia (`warranty-pdf.ts`, seguindo o padrão de
-  `service-order-pdf.ts`) leria esses campos persistidos, evitando inconsistência entre o PDF
-  gerado e os dados da OS. Aguardando validação.
-- **Bloco 25 — DRE Comparativo**: duas alternativas propostas, ambas reaproveitando
-  `getDreSummary` (já pura e recebe `monthPrefix`): (A) comparativo automático "Mês Atual x Mês
-  Anterior" (sem interação do usuário, baixo risco); (B) comparativo multi-mês com seleção manual
-  de meses. Recomendação: implementar (A) nesta fase e deixar (B) para demanda futura. Aguardando
-  validação.
+Continuação da Fase 2B.8, sem alteração de identidade visual, sem Supabase/Auth/RBAC real e sem
+início da Fase 3. Implementa o Bloco 24.3 (correção de sincronização do filtro KPI) e as
+propostas dos Blocos 21 e 25, antes registradas como "não implementadas".
+
+- **Bloco 24.3 — Sincronização instantânea do filtro KPI "Vencidos"**: causa raiz era o
+  `useState(initialFilters ?? {})` em `DataTable` (`data-table.tsx`), cujo valor inicial só é
+  aplicado na primeira montagem. Ao clicar no card "Vencidos" (`<Link
+href="/financeiro/contas-a-pagar?status=vencido">`), a navegação do App Router atualiza
+  `searchParams`/`initialStatus` via props, mas o `useState` interno da `DataTable` preservava o
+  valor antigo de `activeFilters`, exigindo F5 para refletir o novo filtro. Corrigido com o padrão
+  "ajustar estado durante a renderização" (sem `useEffect`, evitando o lint
+  `react-hooks/set-state-in-effect`): a `DataTable` guarda uma chave `JSON.stringify(initialFilters
+?? {})` em estado (`appliedFiltersKey`) e, se a chave recebida via prop mudar em relação à
+  aplicada, reseta `activeFilters` e `page` no mesmo ciclo de render. Resultado: clique no KPI,
+  navegação interna, "voltar" do navegador e reabertura da página atualizam tabela, filtro visual
+  e contador imediatamente, sem F5. Os totais do KPI (`getPayablesSummary`) já eram recalculados a
+  cada render e não dependiam desse estado.
+- **Bloco 21 — Entrega e Garantia**: `ServiceOrder` (`service-orders-data.ts`) ganhou os campos
+  opcionais `deliveryMileage` (KM na entrega), `deliveredAt` (data/hora ISO da entrega) e
+  `warrantyPeriod` (prazo de garantia, em dias), além da função pura `getWarrantyEndDate(deliveredAt,
+warrantyPeriod)`. `updateServiceOrder` (store) passou a aceitar esses 3 campos (com labels em
+  `SERVICE_ORDER_FIELD_LABELS` para o histórico de auditoria). `ServiceOrderEditDialog` ganhou uma
+  seção "Entrega e Garantia" com os 3 campos (data, KM, dias de garantia). A tela de detalhe da OS
+  (`service-order-detail-client.tsx`) ganhou um novo card "Entrega e Garantia" exibindo Data da
+  entrega, KM na entrega, Garantia (dias) e Garantia válida até (calculado via
+  `getWarrantyEndDate`), com "—" quando os campos não estão preenchidos. Novo documento "Termo de
+  Garantia e Entrega" (`src/lib/pdf/warranty-pdf.ts`, função `buildWarrantyPdf`), reaproveitando
+  `createPdfDocument`/`addPdfKeyValueSection`/`addPdfTable` do padrão de PDF existente — traz dados
+  da oficina (cabeçalho padrão), cliente, veículo/placa/KM de entrega, tabela de serviços
+  executados, valor total, prazo/validade da garantia e linhas de assinatura (cliente/oficina).
+  Disponível via novos botões "Termo de Garantia" (exportar) e impressão na tela de detalhe da OS,
+  **sem alterar ou remover** o PDF de OS existente (`service-order-pdf.ts`/`buildServiceOrderPdf`).
+- **Bloco 25 — DRE Comparativo (Mês Atual x Mês Anterior)**: implementada a alternativa (A) da
+  proposta original — comparativo automático, sem interação adicional do usuário. `dre-view.tsx`
+  ganhou `getPreviousMonthPrefix(year, month)` (calcula o mês anterior, com rollover de ano) e
+  reaproveita `getDreSummary` (já pura) para obter os totais do mês anterior. Novo card "Comparativo:
+  {mês atual} x {mês anterior}" abaixo do DRE tradicional (que permanece inalterado), com tabela
+  "Indicador | Atual | Anterior | Variação" para Receita Bruta, Custos, Resultado Operacional,
+  Despesas e Lucro Líquido. `formatVariation(current, previous)` calcula a variação percentual;
+  quando o valor anterior é zero, exibe "0%" (se atual também for zero) ou "—" (divisão por zero
+  evitada), cobrindo os casos "sem dados"/"valores zerados" da validação solicitada. Mudança de mês
+  e de ano (inclusive rollover dezembro→janeiro) são tratados por `getPreviousMonthPrefix`.
 
 ## Fase 2B.7 — Refinamento UX/UI Mobile Global (2026-06-13)
 

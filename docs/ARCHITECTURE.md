@@ -6,6 +6,15 @@
 
 ## Changelog
 
+- **v1.8** — Fase 2B.8.3 (consolidação operacional pré-Fase 3, 2026-06-13): clique no KPI
+  "Vencidos" (Contas a Pagar) agora atualiza tabela, filtro visual e contador instantaneamente, sem
+  F5 — `DataTable` realinha `activeFilters`/paginação durante a renderização quando
+  `initialFilters` muda; `ServiceOrder` ganha campos opcionais `deliveryMileage`, `deliveredAt` e
+  `warrantyPeriod` com novo card "Entrega e Garantia" na tela de detalhe da OS e novo documento PDF
+  "Termo de Garantia e Entrega" (`warranty-pdf.ts`), sem alterar o PDF de OS existente; DRE Gerencial
+  ganha card "Comparativo: Mês Atual x Mês Anterior" (Receita Bruta, Custos, Resultado Operacional,
+  Despesas, Lucro Líquido com variação %), reaproveitando `getDreSummary`. Detalhes em
+  `DECISIONS.md`, seção "Fase 2B.8.3".
 - **v1.7** — Fase 2B.8 (refinamentos operacionais e UX financeiro, 2026-06-13): KPI "Vencidos" de
   Contas a Pagar passa a ser clicável (`/financeiro/contas-a-pagar?status=vencido`), com filtro de
   status "Vencido" calculado via `isOverdue`; badge "Vencido" substitui "Aberto" na coluna Status

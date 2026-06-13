@@ -67,6 +67,17 @@ export function DataTable<T>({
   const [sort, setSort] = useState<{ columnId: string; direction: "asc" | "desc" } | null>(null);
   const [page, setPage] = useState(0);
 
+  // Realinha os filtros ativos quando initialFilters muda (ex.: clique no KPI altera a URL sem
+  // remontar o componente). Ajuste de estado durante a renderização em vez de useEffect, para
+  // evitar um render em cascata adicional.
+  const initialFiltersKey = JSON.stringify(initialFilters ?? {});
+  const [appliedFiltersKey, setAppliedFiltersKey] = useState(initialFiltersKey);
+  if (initialFiltersKey !== appliedFiltersKey) {
+    setAppliedFiltersKey(initialFiltersKey);
+    setActiveFilters(initialFilters ?? {});
+    setPage(0);
+  }
+
   const filtered = useMemo(() => {
     let rows = data;
 

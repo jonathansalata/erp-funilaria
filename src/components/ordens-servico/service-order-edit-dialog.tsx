@@ -31,12 +31,22 @@ export function ServiceOrderEditDialog({ open, onOpenChange, order }: ServiceOrd
   const [items, setItems] = useState<ServiceOrderItem[]>(order.items);
   const [notes, setNotes] = useState(order.notes ?? "");
   const [dueDate, setDueDate] = useState(order.dueDate.slice(0, 10));
+  const [deliveredAt, setDeliveredAt] = useState(order.deliveredAt?.slice(0, 10) ?? "");
+  const [deliveryMileage, setDeliveryMileage] = useState(
+    order.deliveryMileage !== undefined ? String(order.deliveryMileage) : "",
+  );
+  const [warrantyPeriod, setWarrantyPeriod] = useState(
+    order.warrantyPeriod !== undefined ? String(order.warrantyPeriod) : "",
+  );
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
       setItems(order.items);
       setNotes(order.notes ?? "");
       setDueDate(order.dueDate.slice(0, 10));
+      setDeliveredAt(order.deliveredAt?.slice(0, 10) ?? "");
+      setDeliveryMileage(order.deliveryMileage !== undefined ? String(order.deliveryMileage) : "");
+      setWarrantyPeriod(order.warrantyPeriod !== undefined ? String(order.warrantyPeriod) : "");
     }
     onOpenChange(nextOpen);
   }
@@ -55,6 +65,9 @@ export function ServiceOrderEditDialog({ open, onOpenChange, order }: ServiceOrd
       items,
       notes: notes.trim() || undefined,
       dueDate,
+      deliveredAt: deliveredAt ? new Date(deliveredAt).toISOString() : undefined,
+      deliveryMileage: deliveryMileage ? Number(deliveryMileage) : undefined,
+      warrantyPeriod: warrantyPeriod ? Number(warrantyPeriod) : undefined,
     });
 
     toast.success("Ordem de serviço atualizada com sucesso.");
@@ -87,6 +100,47 @@ export function ServiceOrderEditDialog({ open, onOpenChange, order }: ServiceOrd
           <div className="flex flex-col gap-1.5">
             <Label>Itens / Serviços</Label>
             <ServiceOrderItemsEditor items={items} onChange={setItems} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Entrega e Garantia</Label>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="edit-os-delivered-at" className="text-muted-foreground text-xs">
+                  Data da entrega
+                </Label>
+                <Input
+                  id="edit-os-delivered-at"
+                  type="date"
+                  value={deliveredAt}
+                  onChange={(event) => setDeliveredAt(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="edit-os-delivery-mileage" className="text-muted-foreground text-xs">
+                  KM na entrega
+                </Label>
+                <Input
+                  id="edit-os-delivery-mileage"
+                  type="number"
+                  min="0"
+                  value={deliveryMileage}
+                  onChange={(event) => setDeliveryMileage(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="edit-os-warranty-period" className="text-muted-foreground text-xs">
+                  Garantia (dias)
+                </Label>
+                <Input
+                  id="edit-os-warranty-period"
+                  type="number"
+                  min="0"
+                  value={warrantyPeriod}
+                  onChange={(event) => setWarrantyPeriod(event.target.value)}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

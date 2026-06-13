@@ -168,7 +168,18 @@ type ErpDataState = {
   setServiceOrderTechnician: (id: string, technicianId: string) => void;
   updateServiceOrder: (
     id: string,
-    input: Partial<Pick<ServiceOrder, "technicianId" | "items" | "notes" | "dueDate">>,
+    input: Partial<
+      Pick<
+        ServiceOrder,
+        | "technicianId"
+        | "items"
+        | "notes"
+        | "dueDate"
+        | "deliveryMileage"
+        | "deliveredAt"
+        | "warrantyPeriod"
+      >
+    >,
   ) => void;
   setVehicleJourneyStage: (vehicleId: string, stage: JourneyStage) => void;
   createQuote: (input: {
@@ -462,6 +473,9 @@ const SERVICE_ORDER_FIELD_LABELS: Record<string, string> = {
   technicianId: "Técnico responsável",
   dueDate: "Previsão de entrega",
   notes: "Observações",
+  deliveryMileage: "KM na entrega",
+  deliveredAt: "Data da entrega",
+  warrantyPeriod: "Prazo de garantia",
 };
 
 const VEHICLE_FIELD_LABELS: Record<string, string> = {

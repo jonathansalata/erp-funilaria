@@ -10,6 +10,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DocumentActions } from "@/components/shared/document-actions";
 import { getDreSummary } from "@/lib/mock-data/financeiro";
 import {
@@ -39,6 +47,26 @@ const MONTHS = [
 
 const YEARS = ["2025", "2026", "2027"];
 
+/** Retorna o prefixo "YYYY-MM" do mês anterior ao informado (Fase 2B.8.3 — Bloco 25). */
+function getPreviousMonthPrefix(year: string, month: string): { year: string; month: string } {
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  date.setMonth(date.getMonth() - 1);
+  return {
+    year: String(date.getFullYear()),
+    month: String(date.getMonth() + 1).padStart(2, "0"),
+  };
+}
+
+/** Calcula a variação percentual entre o valor atual e o anterior. */
+function formatVariation(current: number, previous: number): string {
+  if (previous === 0) {
+    return current === 0 ? "0%" : "—";
+  }
+  const variation = ((current - previous) / Math.abs(previous)) * 100;
+  const sign = variation > 0 ? "+" : "";
+  return `${sign}${variation.toFixed(1)}%`;
+}
+
 export function DreView() {
   const receivables = useErpDataStore((state) => state.receivables);
   const payables = useErpDataStore((state) => state.payables);
@@ -48,6 +76,13 @@ export function DreView() {
 
   const dre = getDreSummary(receivables, payables, `${year}-${month}`);
 
+  const previousPeriod = getPreviousMonthPrefix(year, month);
+  const drePrevious = getDreSummary(
+    receivables,
+    payables,
+    `${previousPeriod.year}-${previousPeriod.month}`,
+  );
+
   const rows: { label: string; value: number; emphasis?: boolean }[] = [
     { label: "Receita bruta", value: dre.receitaBruta },
     { label: "(–) Custos", value: -dre.custos },
@@ -56,7 +91,26 @@ export function DreView() {
     { label: "Lucro líquido", value: dre.lucro, emphasis: true },
   ];
 
+  const comparativeRows: {
+    label: string;
+    current: number;
+    previous: number;
+    emphasis?: boolean;
+  }[] = [
+    { label: "Receita bruta", current: dre.receitaBruta, previous: drePrevious.receitaBruta },
+    { label: "Custos", current: dre.custos, previous: drePrevious.custos },
+    {
+      label: "Resultado operacional",
+      current: dre.resultadoOperacional,
+      previous: drePrevious.resultadoOperacional,
+      emphasis: true,
+    },
+    { label: "Despesas", current: dre.despesas, previous: drePrevious.despesas },
+    { label: "Lucro líquido", current: dre.lucro, previous: drePrevious.lucro, emphasis: true },
+  ];
+
   const periodLabel = `${MONTHS.find((item) => item.value === month)?.label} de ${year}`;
+  const previousPeriodLabel = `${MONTHS.find((item) => item.value === previousPeriod.month)?.label} de ${previousPeriod.year}`;
 
   function buildPdfDocument() {
     const { doc, contentStartY } = createPdfDocument({
@@ -147,6 +201,50 @@ export function DreView() {
               </span>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>
+            Comparativo: {periodLabel} x {previousPeriodLabel}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Indicador</TableHead>
+                <TableHead className="text-right">Atual</TableHead>
+                <TableHead className="text-right">Anterior</TableHead>
+                <TableHead className="text-right">Variação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {comparativeRows.map((row) => (
+                <TableRow key={row.label}>
+                  <TableCell className={row.emphasis ? "font-heading font-semibold" : ""}>
+                    {row.label}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      (row.emphasis ? "font-heading font-semibold " : "") +
+                      "text-right" +
+                      (row.current < 0 ? " text-destructive" : "")
+                    }
+                  >
+                    {formatCurrency(row.current)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-right">
+                    {formatCurrency(row.previous)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVariation(row.current, row.previous)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

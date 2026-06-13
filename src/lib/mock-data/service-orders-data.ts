@@ -49,6 +49,11 @@ export type ServiceOrder = {
   createdAt: string;
   updatedAt: string;
   statusHistory?: StatusChangeEvent[];
+  /** Dados de entrega e garantia (Fase 2B.8.3 — Bloco 21). */
+  deliveryMileage?: number;
+  deliveredAt?: string;
+  /** Prazo de garantia, em dias, a contar da data de entrega. */
+  warrantyPeriod?: number;
 };
 
 export const SERVICE_ORDERS: ServiceOrder[] = [
@@ -599,4 +604,11 @@ export function getServiceOrderById(id: string): ServiceOrder | undefined {
 
 export function calculateServiceOrderTotal(items: ServiceOrderItem[]): number {
   return items.reduce((total, item) => total + item.quantity * item.unitPrice, 0);
+}
+
+/** Calcula a data final da garantia a partir da data de entrega e do prazo (em dias). */
+export function getWarrantyEndDate(deliveredAt: string, warrantyPeriod: number): string {
+  const date = new Date(deliveredAt);
+  date.setDate(date.getDate() + warrantyPeriod);
+  return date.toISOString();
 }

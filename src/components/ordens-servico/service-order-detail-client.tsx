@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Pencil } from "lucide-react";
+import { FileText, MessageCircle, Pencil, Printer } from "lucide-react";
 
 import { ServiceOrderEditDialog } from "@/components/ordens-servico/service-order-edit-dialog";
 import { ServiceOrderStatusActions } from "@/components/ordens-servico/service-order-status-actions";
@@ -25,9 +25,11 @@ import { getClientById } from "@/lib/mock-data/clients";
 import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-data/entity-events";
 import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
 import { buildServiceOrderPdf } from "@/lib/pdf/service-order-pdf";
+import { buildWarrantyPdf } from "@/lib/pdf/warranty-pdf";
 import { SERVICE_ORDER_STATUS_META } from "@/lib/mock-data/service-orders";
 import {
   calculateServiceOrderTotal,
+  getWarrantyEndDate,
   type ChecklistItem,
   type ServiceOrder,
   type ServiceOrderStatus,
@@ -94,6 +96,17 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
     printPdf(buildServiceOrderPdf(currentOrder, client, vehicle));
   }
 
+  function handleExportWarrantyPdf() {
+    downloadPdf(
+      buildWarrantyPdf(currentOrder, client, vehicle),
+      `${currentOrder.code}-garantia.pdf`,
+    );
+  }
+
+  function handlePrintWarranty() {
+    printPdf(buildWarrantyPdf(currentOrder, client, vehicle));
+  }
+
   function handleSendWhatsapp() {
     const message = buildDocumentWhatsappMessage({
       clientName: client?.name ?? "cliente",
@@ -117,6 +130,13 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
         actions={
           <>
             <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
+            <Button variant="outline" onClick={handleExportWarrantyPdf}>
+              <FileText />
+              Termo de Garantia
+            </Button>
+            <Button variant="outline" size="icon" onClick={handlePrintWarranty}>
+              <Printer />
+            </Button>
             <Button variant="outline" onClick={handleSendWhatsapp}>
               <MessageCircle />
               Enviar por WhatsApp
@@ -343,6 +363,44 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Previsão de entrega</span>
                 <span>{formatDate(currentOrder.dueDate)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Entrega e Garantia</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Data da entrega</span>
+                <span>{currentOrder.deliveredAt ? formatDate(currentOrder.deliveredAt) : "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">KM na entrega</span>
+                <span>
+                  {currentOrder.deliveryMileage !== undefined
+                    ? `${currentOrder.deliveryMileage.toLocaleString("pt-BR")} km`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Garantia</span>
+                <span>
+                  {currentOrder.warrantyPeriod !== undefined
+                    ? `${currentOrder.warrantyPeriod} dias`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Garantia válida até</span>
+                <span>
+                  {currentOrder.deliveredAt && currentOrder.warrantyPeriod !== undefined
+                    ? formatDate(
+                        getWarrantyEndDate(currentOrder.deliveredAt, currentOrder.warrantyPeriod),
+                      )
+                    : "—"}
+                </span>
               </div>
             </CardContent>
           </Card>
