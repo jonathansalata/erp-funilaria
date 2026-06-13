@@ -51,17 +51,22 @@ export function ReceivePaymentDialog({
   const [amount, setAmount] = useState(0);
   const [stage, setStage] = useState<PaymentStage>("entrega");
   const [entries, setEntries] = useState<PaymentEntryInput[]>([]);
+  const [wasOpen, setWasOpen] = useState(open);
 
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen && receivable) {
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && receivable) {
       const remaining = getReceivableBalance(receivable);
       setAmount(remaining);
       setStage("entrega");
       setEntries([
         { method: "pix", value: remaining, paidAt: new Date().toISOString().slice(0, 10) },
       ]);
+    } else if (!open) {
+      setAmount(0);
+      setStage("entrega");
+      setEntries([]);
     }
-    onOpenChange(nextOpen);
   }
 
   if (!receivable) return null;
@@ -86,7 +91,7 @@ export function ReceivePaymentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Receber pagamento</DialogTitle>

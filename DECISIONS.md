@@ -3,6 +3,84 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Fase 2B.6 — Correções, Padronização e Fechamentos Operacionais (2026-06-13)
+
+Fase de correções e padronizações sobre o ERP operacional mockado (Fase 1 + Fase 2B/2B.5), sem
+Supabase, autenticação real ou RBAC backend (Fase 3 não iniciada). 13 blocos auditados e
+corrigidos, mais 2 blocos novos (14 e 15) incorporados ao plano. Resumo por bloco:
+
+- **Bloco 01 — Guard de hidratação antes de `notFound()`**: telas de detalhe (`Cliente`,
+  `Veículo`, `Orçamento`, `Ordem de Serviço`, `Vistoria`) que dependem do estado persistido do
+  Zustand (`useErpDataStore`) agora aguardam `hasHydrated` antes de decidir se o registro existe,
+  evitando "não encontrado" piscando no primeiro render (antes da hidratação do
+  `localStorage`).
+- **Bloco 02 — URLs amigáveis por código de documento**: rotas `/orcamentos/[code]` e
+  `/ordens-servico/[code]` (antes `[id]`) passam a aceitar o **código do documento** em minúsculas
+  (ex.: `/orcamentos/orc-2026-000125`, `/os/os-2026-000090`) — **sem o nome do cliente na URL**,
+  preparando compatibilidade com identificadores reais do Supabase na Fase 3.
+  `OrcamentoDetailView`/`OrdemServicoDetailView` fazem lookup case-insensitive por `code` com
+  fallback para `id` legado, e redirecionam (`router.replace`) para a URL canônica em minúsculas
+  quando acessadas por `id`. Todos os ~17 pontos de navegação do app (Kanban, tabelas, dashboard,
+  fichas de cliente/veículo, vistoria, ações de status) foram migrados de
+  `/orcamentos/${quote.id}` / `/ordens-servico/${order.id}` para
+  `/orcamentos/${quote.code.toLowerCase()}` / `/ordens-servico/${order.code.toLowerCase()}`.
+- **Bloco 03 — Clique vazio na Agenda**: corrigido o clique em dias/slots vazios do calendário,
+  que não abria o formulário de novo compromisso.
+- **Bloco 04 — Agenda inteligente na conversão Orçamento → OS**: ao converter um orçamento
+  aprovado em Ordem de Serviço, `ConvertToServiceOrderDialog` solicita **data e hora de entrega
+  prevista**, oferece a opção de **criar automaticamente um agendamento de entrega** na Agenda
+  (Cliente/Veículo/OS vinculada/Data/Hora/Tipo = Entrega) e **valida conflitos de horário**
+  (outro compromisso "agendado" na mesma data/hora), alertando o usuário antes da confirmação.
+- **Bloco 05 — `validUntil` na criação de orçamento**: o formulário de novo orçamento passa a
+  capturar a validade do orçamento (`validUntil`), antes ausente.
+- **Bloco 06 — Reset do modal de recebimento**: `ReceivePaymentDialog` agora reinicia
+  valor/forma de pagamento/parcelas a cada abertura, evitando que dados do recebimento anterior
+  vazassem para o próximo.
+- **Bloco 07 — Confirmação de cancelamento (Financeiro)**: cancelamento de contas a
+  receber/pagar passa a exigir confirmação via `ConfirmActionDialog`
+  (`src/components/shared/confirm-action-dialog.tsx`, novo componente — confirmação em etapa
+  única para ações reversíveis como Cancelar/Estornar/Encerrar/Converter, complementar ao
+  `ConfirmDeleteDialog` existente para exclusões definitivas).
+- **Bloco 08 — Estorno parcial/total**: `reverseReceivable`/`reversePayable` passam a suportar
+  estorno de um lançamento individual (parcial) além do estorno total, com evento de auditoria
+  específico (`payment_reversed`).
+- **Bloco 09/10 — Ajustes de layout responsivo**: truncamento de textos longos no Financeiro e
+  ajustes responsivos no Kanban e no fluxo de caixa (cashflow) para telas estreitas.
+- **Bloco 11 — Padronização "Todos"/"Todas"**: filtros com opção "todos os itens" padronizados
+  para a forma gramatical correta (masculino/feminino) conforme o substantivo do módulo.
+- **Bloco 12 — Perfil do usuário (preparação Supabase Auth)**: nova store field
+  `currentUserId` + tela `/configuracoes/perfil`
+  (`src/components/configuracoes/profile-view.tsx`) exibindo dados do usuário "logado" (mock),
+  permissões e edição de telefone/cargo. Estrutura criada para ser compatível com uma futura
+  integração ao Supabase Auth (Fase 3) — **nenhuma autenticação real foi implementada**.
+- **Bloco 14 (novo) — Visão operacional completa no Pátio**: clicar em qualquer card do Kanban
+  do Pátio abre `PatioVehicleSheet`
+  (`src/components/patio/patio-vehicle-sheet.tsx`), um painel lateral somente leitura com
+  Cliente, Veículo, Vistoria/Orçamento/OS vinculados (mais recentes), Status/Etapa da jornada,
+  Observações e a timeline completa de eventos do veículo (`getVehicleTimeline`) — sem precisar
+  navegar para outros módulos. O botão "Mudar etapa" permanece funcional via
+  `event.stopPropagation()`.
+- **Bloco 15 (novo) — Padronização de ações destrutivas e auditoria**: auditoria completa de
+  todos os pontos de Excluir/Cancelar/Estornar/Encerrar/Converter do sistema. Praticamente todo o
+  sistema já estava em conformidade (confirmação via `ConfirmDeleteDialog`/`ConfirmActionDialog`/
+  fluxos de status com diálogo, e registro de evento via `buildEntityEvent`). Único módulo com
+  lacunas: **Agenda**. Corrigido:
+  - `AppointmentFormDialog` (`src/components/agenda/appointment-form-dialog.tsx`): "Cancelar
+    agendamento" agora exige confirmação via `ConfirmActionDialog` antes de efetivar o
+    cancelamento (antes, o cancelamento era imediato ao clique).
+  - `erp-data-store.ts`: `changeAppointmentStatus` e `deleteAppointment` agora geram
+    `entity_events` (`buildEntityEvent`), com novo tipo de entidade `"appointment"` adicionado a
+    `EntityType` (`src/lib/mock-data/entity-events.ts`, incluindo `ENTITY_TYPE_LABELS` e o mapa
+    de módulos da tela de Auditoria em `src/app/(dashboard)/auditoria/page.tsx`). Cancelamento
+    gera evento `inactivated`; demais mudanças de status geram `status_changed`; exclusão gera
+    `deleted`.
+
+### Regra permanente de documentação
+
+A partir desta fase, **toda fase de implementação deve atualizar obrigatoriamente** este arquivo
+(`DECISIONS.md`), a documentação técnica (`docs/ARCHITECTURE.md`, quando aplicável), o changelog
+interno e a documentação funcional dos módulos afetados — não apenas o código.
+
 ## Fase 2B.5 — Consolidação Operacional, Eliminação de Hardcodes e Fechamento de Lacunas Funcionais (2026-06-12)
 
 Fase de consolidação sobre o ERP operacional mockado (Fase 1), sem Supabase, autenticação, RBAC

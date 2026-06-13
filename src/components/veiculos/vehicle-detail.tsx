@@ -292,7 +292,7 @@ export function VehicleDetail({
                       <TableRow
                         key={quote.id}
                         className="cursor-pointer"
-                        onClick={() => router.push(`/orcamentos/${quote.id}`)}
+                        onClick={() => router.push(`/orcamentos/${quote.code.toLowerCase()}`)}
                       >
                         <TableCell className="font-medium">{quote.code}</TableCell>
                         <TableCell className="text-muted-foreground">
@@ -338,7 +338,7 @@ export function VehicleDetail({
                       <TableRow
                         key={order.id}
                         className="cursor-pointer"
-                        onClick={() => router.push(`/ordens-servico/${order.id}`)}
+                        onClick={() => router.push(`/ordens-servico/${order.code.toLowerCase()}`)}
                       >
                         <TableCell className="font-medium">{order.code}</TableCell>
                         <TableCell className="text-muted-foreground">

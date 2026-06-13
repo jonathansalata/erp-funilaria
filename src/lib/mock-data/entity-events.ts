@@ -30,6 +30,7 @@ export type EntityType =
   | "inspection"
   | "receivable"
   | "payable"
+  | "appointment"
   | "auth"
   | "user"
   | "settings";
@@ -119,6 +120,7 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   inspection: "Vistoria",
   receivable: "Conta a Receber",
   payable: "Conta a Pagar",
+  appointment: "Agendamento",
   auth: "Autenticação",
   user: "Usuário",
   settings: "Configurações",

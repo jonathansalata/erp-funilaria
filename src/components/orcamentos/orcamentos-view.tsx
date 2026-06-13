@@ -40,7 +40,7 @@ export function OrcamentosView({ initialStatus }: OrcamentosViewProps) {
 
 function QuoteKanbanCard({ quote }: { quote: QuoteCard }) {
   return (
-    <Link href={`/orcamentos/${quote.id}`} className="contents">
+    <Link href={`/orcamentos/${quote.code.toLowerCase()}`} className="contents">
       <KanbanCard className="cursor-pointer">
         <div className="flex items-center justify-between gap-2">
           <span className="text-muted-foreground text-xs font-medium">{quote.code}</span>

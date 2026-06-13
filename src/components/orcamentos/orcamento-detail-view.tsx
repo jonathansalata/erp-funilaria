@@ -1,18 +1,34 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { QuoteDetailClient } from "@/components/orcamentos/quote-detail-client";
 import { Button } from "@/components/ui/button";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type OrcamentoDetailViewProps = {
-  id: string;
+  /** Código do orçamento na URL (ex: "orc-2026-000125"), ou `id` legado. */
+  code: string;
 };
 
-export function OrcamentoDetailView({ id }: OrcamentoDetailViewProps) {
+export function OrcamentoDetailView({ code }: OrcamentoDetailViewProps) {
+  const router = useRouter();
   const hasHydrated = useErpDataStore((state) => state.hasHydrated);
-  const quote = useErpDataStore((state) => state.quotes.find((item) => item.id === id));
+  const quotes = useErpDataStore((state) => state.quotes);
+
+  const quote =
+    quotes.find((item) => item.code.toLowerCase() === code.toLowerCase()) ??
+    quotes.find((item) => item.id === code);
+
+  const isLegacyIdMatch = Boolean(quote) && quote!.code.toLowerCase() !== code.toLowerCase();
+
+  useEffect(() => {
+    if (isLegacyIdMatch && quote) {
+      router.replace(`/orcamentos/${quote.code.toLowerCase()}`);
+    }
+  }, [isLegacyIdMatch, quote, router]);
 
   if (!hasHydrated) {
     return null;

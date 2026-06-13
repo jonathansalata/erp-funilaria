@@ -28,9 +28,23 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { useErpDataStore } from "@/stores/erp-data-store";
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
 export function Header() {
   const pathname = usePathname();
+  const currentUserId = useErpDataStore((state) => state.currentUserId);
+  const currentUser = useErpDataStore((state) =>
+    state.users.find((user) => user.id === currentUserId),
+  );
 
   return (
     <header className="bg-background border-border sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:px-6">
@@ -99,15 +113,21 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>
             <Avatar size="sm">
-              <AvatarFallback>JS</AvatarFallback>
+              <AvatarFallback>{currentUser ? initials(currentUser.name) : "?"}</AvatarFallback>
             </Avatar>
-            <span className="hidden text-sm font-medium sm:inline">Jonathan Salata</span>
+            <span className="hidden text-sm font-medium sm:inline">
+              {currentUser?.name ?? "Usuário"}
+            </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Perfil</DropdownMenuItem>
-            <DropdownMenuItem>Configurações</DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/configuracoes/perfil" />}>
+              Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/configuracoes" />}>
+              Configurações
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive">Sair</DropdownMenuItem>
           </DropdownMenuContent>

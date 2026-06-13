@@ -204,10 +204,10 @@ export function CashFlowView() {
             onChange={(event) => setDateTo(event.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
           <Label htmlFor="cashflow-category">Categoria (saídas)</Label>
           <Select value={category} onValueChange={(value) => value && setCategory(value as string)}>
-            <SelectTrigger id="cashflow-category" className="w-48">
+            <SelectTrigger id="cashflow-category" className="w-full sm:w-48">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -220,13 +220,13 @@ export function CashFlowView() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
           <Label htmlFor="cashflow-method">Forma de pagamento (entradas)</Label>
           <Select
             value={paymentMethod}
             onValueChange={(value) => value && setPaymentMethod(value as string)}
           >
-            <SelectTrigger id="cashflow-method" className="w-48">
+            <SelectTrigger id="cashflow-method" className="w-full sm:w-48">
               <SelectValue placeholder="Forma de pagamento" />
             </SelectTrigger>
             <SelectContent>
@@ -267,7 +267,7 @@ export function CashFlowView() {
                   <TableCell className="text-success text-right">
                     {entry.inflow > 0 ? formatCurrency(entry.inflow) : "—"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
+                  <TableCell className="text-muted-foreground max-w-[220px] truncate text-xs">
                     {Object.entries(entry.inflowByMethod)
                       .filter(([, value]) => (value ?? 0) > 0)
                       .map(

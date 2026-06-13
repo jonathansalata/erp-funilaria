@@ -101,7 +101,7 @@ export function QuotesListTable({ quotes, initialStatus }: QuotesListTableProps)
       }
       filters={filters}
       initialFilters={initialStatus ? { status: initialStatus } : undefined}
-      onRowClick={(quote) => router.push(`/orcamentos/${quote.id}`)}
+      onRowClick={(quote) => router.push(`/orcamentos/${quote.code.toLowerCase()}`)}
       emptyMessage="Nenhum orçamento encontrado."
     />
   );

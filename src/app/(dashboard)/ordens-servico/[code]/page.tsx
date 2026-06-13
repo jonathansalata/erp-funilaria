@@ -3,9 +3,9 @@ import { OrdemServicoDetailView } from "@/components/ordens-servico/ordem-servic
 export default async function OrdemServicoDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ code: string }>;
 }) {
-  const { id } = await params;
+  const { code } = await params;
 
-  return <OrdemServicoDetailView id={id} />;
+  return <OrdemServicoDetailView code={code} />;
 }

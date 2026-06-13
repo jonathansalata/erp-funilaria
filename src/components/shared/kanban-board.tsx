@@ -31,7 +31,7 @@ export function KanbanBoard<T>({ columns, getItemId, renderCard }: KanbanBoardPr
       {columns.map((column) => (
         <div
           key={column.id}
-          className="bg-muted/40 flex w-72 shrink-0 flex-col gap-3 rounded-xl p-3"
+          className="bg-muted/40 flex w-[85vw] shrink-0 flex-col gap-3 rounded-xl p-3 sm:w-72"
         >
           <div className="flex items-center justify-between gap-2 px-1">
             <StatusBadge variant={column.variant} dot>

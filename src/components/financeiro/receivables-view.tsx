@@ -9,6 +9,7 @@ import {
   type ReceivableFormValues,
 } from "@/components/financeiro/receivable-form-dialog";
 import { ReceivePaymentDialog } from "@/components/financeiro/receive-payment-dialog";
+import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import {
   DataTable,
@@ -80,6 +81,7 @@ export function ReceivablesView() {
   const updateReceivable = useErpDataStore((state) => state.updateReceivable);
   const receiveReceivable = useErpDataStore((state) => state.receiveReceivable);
   const reverseReceivable = useErpDataStore((state) => state.reverseReceivable);
+  const reverseReceivablePayment = useErpDataStore((state) => state.reverseReceivablePayment);
   const cancelReceivable = useErpDataStore((state) => state.cancelReceivable);
   const deleteReceivable = useErpDataStore((state) => state.deleteReceivable);
 
@@ -90,6 +92,8 @@ export function ReceivablesView() {
   const [deletingReceivable, setDeletingReceivable] = useState<Receivable | undefined>(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyReceivable, setHistoryReceivable] = useState<Receivable | undefined>(undefined);
+  const [cancelingReceivable, setCancelingReceivable] = useState<Receivable | undefined>(undefined);
+  const [reversingReceivable, setReversingReceivable] = useState<Receivable | undefined>(undefined);
 
   const summary = getReceivablesSummary(receivables);
 
@@ -194,6 +198,7 @@ export function ReceivablesView() {
         if (methods.length === 0) return "—";
         return methods.map((method) => PAYMENT_METHOD_LABELS[method]).join(", ");
       },
+      className: "max-w-[180px] truncate",
     },
     {
       id: "dueDate",
@@ -229,7 +234,7 @@ export function ReceivablesView() {
             </Button>
           )}
           {(row.status === "parcial" || row.status === "recebido") && (
-            <Button size="sm" variant="outline" onClick={() => reverseReceivable(row.id)}>
+            <Button size="sm" variant="outline" onClick={() => setReversingReceivable(row)}>
               Estornar
             </Button>
           )}
@@ -240,7 +245,7 @@ export function ReceivablesView() {
             </Button>
           )}
           {row.status === "aberto" && (
-            <Button size="sm" variant="outline" onClick={() => cancelReceivable(row.id)}>
+            <Button size="sm" variant="outline" onClick={() => setCancelingReceivable(row)}>
               Cancelar
             </Button>
           )}
@@ -345,6 +350,9 @@ export function ReceivablesView() {
         onOpenChange={setHistoryOpen}
         title={historyReceivable?.document ?? ""}
         payments={historyReceivable?.payments}
+        onReversePayment={(paymentId) =>
+          historyReceivable && reverseReceivablePayment(historyReceivable.id, paymentId)
+        }
       />
 
       <ConfirmDeleteDialog
@@ -356,6 +364,34 @@ export function ReceivablesView() {
           }
         }}
         itemLabel={deletingReceivable ? `o título ${deletingReceivable.document}` : undefined}
+      />
+
+      <ConfirmActionDialog
+        open={Boolean(cancelingReceivable)}
+        onOpenChange={(open) => !open && setCancelingReceivable(undefined)}
+        onConfirm={() => {
+          if (cancelingReceivable) {
+            cancelReceivable(cancelingReceivable.id);
+          }
+        }}
+        title="Cancelar título"
+        description={`Tem certeza de que deseja cancelar o título ${cancelingReceivable?.document ?? ""}? Esta ação pode ser registrada no histórico de auditoria.`}
+        confirmLabel="Cancelar título"
+        variant="destructive"
+      />
+
+      <ConfirmActionDialog
+        open={Boolean(reversingReceivable)}
+        onOpenChange={(open) => !open && setReversingReceivable(undefined)}
+        onConfirm={() => {
+          if (reversingReceivable) {
+            reverseReceivable(reversingReceivable.id);
+          }
+        }}
+        title="Estornar recebimento"
+        description={`Tem certeza de que deseja estornar o recebimento do título ${reversingReceivable?.document ?? ""}? O valor recebido será revertido e o título voltará para "Aberto".`}
+        confirmLabel="Estornar"
+        variant="destructive"
       />
     </div>
   );

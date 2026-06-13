@@ -17,6 +17,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CLIENTS } from "@/lib/mock-data/clients";
@@ -33,6 +34,7 @@ export function NewQuoteForm() {
   const [vehicleId, setVehicleId] = useState("");
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [notes, setNotes] = useState("");
+  const [validUntil, setValidUntil] = useState("");
 
   const clientOptions = useMemo<ComboboxOption[]>(
     () =>
@@ -70,7 +72,13 @@ export function NewQuoteForm() {
       return;
     }
 
-    createQuote({ clientId, vehicleId, items, notes: notes.trim() || undefined });
+    createQuote({
+      clientId,
+      vehicleId,
+      items,
+      notes: notes.trim() || undefined,
+      validUntil: validUntil || undefined,
+    });
     toast.success("Orçamento criado com sucesso.");
     router.push("/orcamentos");
   }
@@ -83,7 +91,7 @@ export function NewQuoteForm() {
         <CardHeader>
           <CardTitle>Cliente e veículo</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="quote-client">Cliente</Label>
             <Combobox
@@ -139,6 +147,16 @@ export function NewQuoteForm() {
                 </ComboboxList>
               </ComboboxContent>
             </Combobox>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="quote-valid-until">Válido até</Label>
+            <Input
+              id="quote-valid-until"
+              type="date"
+              value={validUntil}
+              onChange={(event) => setValidUntil(event.target.value)}
+            />
           </div>
         </CardContent>
       </Card>

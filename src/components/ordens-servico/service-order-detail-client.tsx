@@ -320,7 +320,10 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
               {quote ? (
                 <>
                   <p className="text-muted-foreground">Gerada a partir do orçamento</p>
-                  <Link href={`/orcamentos/${quote.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/orcamentos/${quote.code.toLowerCase()}`}
+                    className="font-medium hover:underline"
+                  >
                     {quote.code}
                   </Link>
                 </>

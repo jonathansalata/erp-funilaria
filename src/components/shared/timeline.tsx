@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ export type TimelineEntry = {
   icon?: LucideIcon;
   variant?: StatusVariant;
   author?: string;
+  actions?: ReactNode;
 };
 
 type TimelineProps = {
@@ -57,9 +59,15 @@ export function Timeline({
               {index < entries.length - 1 && <span className="bg-border w-px flex-1" />}
             </div>
             <div
-              className={cn("flex flex-col gap-0.5 pb-4", index === entries.length - 1 && "pb-0")}
+              className={cn(
+                "flex flex-1 flex-col gap-0.5 pb-4",
+                index === entries.length - 1 && "pb-0",
+              )}
             >
-              <p className="text-sm font-medium">{entry.title}</p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium">{entry.title}</p>
+                {entry.actions}
+              </div>
               {entry.description && (
                 <p className="text-muted-foreground text-sm">{entry.description}</p>
               )}

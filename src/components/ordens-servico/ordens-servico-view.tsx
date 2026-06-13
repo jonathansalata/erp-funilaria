@@ -53,7 +53,7 @@ function ServiceOrderKanbanCard({ order }: { order: ServiceOrderCard }) {
   return (
     <KanbanCard
       className="cursor-pointer"
-      onClick={() => router.push(`/ordens-servico/${order.id}`)}
+      onClick={() => router.push(`/ordens-servico/${order.code.toLowerCase()}`)}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-xs font-medium">{order.code}</span>
@@ -61,7 +61,7 @@ function ServiceOrderKanbanCard({ order }: { order: ServiceOrderCard }) {
       </div>
       {order.quoteCode && order.quoteId && (
         <Link
-          href={`/orcamentos/${order.quoteId}`}
+          href={`/orcamentos/${order.quoteCode?.toLowerCase()}`}
           className="text-primary text-xs hover:underline"
           onClick={(event) => event.stopPropagation()}
         >

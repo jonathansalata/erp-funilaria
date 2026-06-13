@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import {
+  APPOINTMENT_STATUS_META,
   APPOINTMENTS,
   type Appointment,
   type AppointmentStatus,
@@ -175,12 +176,13 @@ type ErpDataState = {
     vehicleId: string;
     items: QuoteItem[];
     notes?: string;
+    validUntil?: string;
   }) => Quote;
   updateQuote: (
     id: string,
     input: Partial<Pick<Quote, "clientId" | "vehicleId" | "items" | "notes" | "validUntil">>,
   ) => void;
-  createServiceOrderFromQuote: (quoteId: string) => ServiceOrder | undefined;
+  createServiceOrderFromQuote: (quoteId: string, dueDate?: string) => ServiceOrder | undefined;
   createInspection: (input: {
     clientId: string;
     vehicleId: string;
@@ -242,6 +244,8 @@ type ErpDataState = {
     input: Partial<Pick<PaymentEntry, "method" | "cardBrand" | "installments" | "notes">>,
   ) => void;
   reverseReceivable: (id: string) => void;
+  /** Estorno granular: reverte um único lançamento de recebimento (Fase 2B.6, Bloco 08). */
+  reverseReceivablePayment: (receivableId: string, paymentId: string) => void;
   cancelReceivable: (id: string) => void;
   deleteReceivable: (id: string) => void;
   createPayable: (input: {
@@ -257,11 +261,19 @@ type ErpDataState = {
   ) => void;
   payPayable: (id: string, payments: PaymentEntryInput[]) => void;
   reversePayable: (id: string) => void;
+  /** Estorno granular: reverte um único lançamento de pagamento (Fase 2B.6, Bloco 08). */
+  reversePayablePayment: (payableId: string, paymentId: string) => void;
   cancelPayable: (id: string) => void;
   deletePayable: (id: string) => void;
 
   // Fase 2B — Usuários e permissões
   users: User[];
+  /**
+   * Usuário "logado" nesta fase (sem autenticação real). Estrutura preparada
+   * para futura integração com Supabase Auth (Fase 3) — ver Bloco 12.
+   */
+  currentUserId: string;
+  setCurrentUserId: (id: string) => void;
   createUser: (input: {
     name: string;
     email: string;
@@ -509,6 +521,8 @@ export const useErpDataStore = create<ErpDataState>()(
       payables: PAYABLES,
       events: ENTITY_EVENTS,
       users: USERS,
+      currentUserId: "usr-001",
+      setCurrentUserId: (id) => set({ currentUserId: id }),
       technicians: TECHNICIANS,
       catalogs: DEFAULT_CATALOGS,
       paymentMethodConfigs: DEFAULT_PAYMENT_METHOD_CONFIGS,
@@ -667,6 +681,7 @@ export const useErpDataStore = create<ErpDataState>()(
           status: "rascunho",
           items: input.items,
           notes: input.notes,
+          validUntil: input.validUntil,
           attachments: [],
           createdAt: now,
           updatedAt: now,
@@ -719,7 +734,7 @@ export const useErpDataStore = create<ErpDataState>()(
             events: [...state.events, event],
           };
         }),
-      createServiceOrderFromQuote: (quoteId) => {
+      createServiceOrderFromQuote: (quoteId, dueDate) => {
         const state = get();
         const quote = state.quotes.find((item) => item.id === quoteId);
         if (!quote) return undefined;
@@ -788,7 +803,7 @@ export const useErpDataStore = create<ErpDataState>()(
           timeLogs: [],
           photos: [],
           notes: `Convertida automaticamente do orçamento ${quote.code} (aprovado).`,
-          dueDate: addDaysToReferenceDate(3),
+          dueDate: dueDate ?? addDaysToReferenceDate(3),
           createdAt: now,
           updatedAt: now,
         };
@@ -929,15 +944,52 @@ export const useErpDataStore = create<ErpDataState>()(
           ),
         })),
       changeAppointmentStatus: (id, status) =>
-        set((state) => ({
-          appointments: state.appointments.map((item) =>
-            item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item,
-          ),
-        })),
+        set((state) => {
+          const appointment = state.appointments.find((item) => item.id === id);
+          if (!appointment) return {};
+
+          const event = buildEntityEvent({
+            entityType: "appointment",
+            entityId: id,
+            eventType: status === "cancelado" ? "inactivated" : "status_changed",
+            title:
+              status === "cancelado"
+                ? `Agendamento ${appointment.code} cancelado`
+                : `Status do agendamento ${appointment.code} alterado para ${APPOINTMENT_STATUS_META[status].label}`,
+            metadata: {
+              vehicleId: appointment.vehicleId,
+              clientId: appointment.clientId,
+              fromStatus: appointment.status,
+              toStatus: status,
+            },
+          });
+
+          return {
+            appointments: state.appointments.map((item) =>
+              item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       deleteAppointment: (id) =>
-        set((state) => ({
-          appointments: state.appointments.filter((item) => item.id !== id),
-        })),
+        set((state) => {
+          const appointment = state.appointments.find((item) => item.id === id);
+          if (!appointment) return {};
+
+          const event = buildEntityEvent({
+            entityType: "appointment",
+            entityId: id,
+            eventType: "deleted",
+            title: `Agendamento ${appointment.code} excluído`,
+            description: appointment.title,
+            metadata: { vehicleId: appointment.vehicleId, clientId: appointment.clientId },
+          });
+
+          return {
+            appointments: state.appointments.filter((item) => item.id !== id),
+            events: [...state.events, event],
+          };
+        }),
       createReceivable: (input) => {
         const now = new Date().toISOString();
         const newReceivable: Receivable = {
@@ -1148,6 +1200,50 @@ export const useErpDataStore = create<ErpDataState>()(
             events: [...state.events, event],
           };
         }),
+      reverseReceivablePayment: (receivableId, paymentId) =>
+        set((state) => {
+          const item = state.receivables.find((entry) => entry.id === receivableId);
+          if (!item) return {};
+          const payment = item.payments?.find((entry) => entry.id === paymentId);
+          if (!payment) return {};
+
+          const now = new Date().toISOString();
+          const remainingPayments = (item.payments ?? []).filter((entry) => entry.id !== paymentId);
+          const receivedValue = sumPayments(remainingPayments);
+          const status: ReceivableStatus =
+            receivedValue <= 0 ? "aberto" : receivedValue >= item.value ? "recebido" : "parcial";
+
+          const event = buildEntityEvent({
+            entityType: "receivable",
+            entityId: receivableId,
+            eventType: "payment_reversed",
+            title: "Recebimento parcial estornado",
+            description: `${PAYMENT_METHOD_LABELS[payment.method]}: ${formatCurrency(payment.value)}`,
+            metadata: {
+              previousValue: item.receivedValue ?? 0,
+              newValue: receivedValue,
+              receivableId,
+              clientId: item.clientId,
+              paymentId,
+            },
+          });
+
+          return {
+            receivables: state.receivables.map((entry) =>
+              entry.id === receivableId
+                ? {
+                    ...entry,
+                    status,
+                    receivedValue: receivedValue > 0 ? receivedValue : undefined,
+                    receivedAt: receivedValue > 0 ? entry.receivedAt : undefined,
+                    payments: remainingPayments.length > 0 ? remainingPayments : undefined,
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
       cancelReceivable: (id) =>
         set((state) => {
           const item = state.receivables.find((entry) => entry.id === id);
@@ -1296,6 +1392,45 @@ export const useErpDataStore = create<ErpDataState>()(
                     status: "aberto" as PayableStatus,
                     paidAt: undefined,
                     payments: undefined,
+                    updatedAt: now,
+                  }
+                : entry,
+            ),
+            events: [...state.events, event],
+          };
+        }),
+      reversePayablePayment: (payableId, paymentId) =>
+        set((state) => {
+          const item = state.payables.find((entry) => entry.id === payableId);
+          if (!item) return {};
+          const payment = item.payments?.find((entry) => entry.id === paymentId);
+          if (!payment) return {};
+
+          const now = new Date().toISOString();
+          const remainingPayments = (item.payments ?? []).filter((entry) => entry.id !== paymentId);
+
+          const event = buildEntityEvent({
+            entityType: "payable",
+            entityId: payableId,
+            eventType: "payment_reversed",
+            title: "Pagamento parcial estornado",
+            description: `${PAYMENT_METHOD_LABELS[payment.method]}: ${formatCurrency(payment.value)}`,
+            metadata: {
+              previousValue: item.status,
+              newValue: remainingPayments.length > 0 ? "pago" : "aberto",
+              payableId,
+              paymentId,
+            },
+          });
+
+          return {
+            payables: state.payables.map((entry) =>
+              entry.id === payableId
+                ? {
+                    ...entry,
+                    status: remainingPayments.length > 0 ? "pago" : ("aberto" as PayableStatus),
+                    paidAt: remainingPayments.length > 0 ? entry.paidAt : undefined,
+                    payments: remainingPayments.length > 0 ? remainingPayments : undefined,
                     updatedAt: now,
                   }
                 : entry,

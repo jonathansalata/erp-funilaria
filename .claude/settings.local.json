@@ -65,7 +65,9 @@
       "Bash(taskkill //F //PID 22184)",
       "Bash(awk '{print $5}')",
       "Bash(taskkill //F //PID 21896)",
-      "Bash(taskkill //F //PID 18092)"
-    ]
+      "Bash(taskkill //F //PID 18092)",
+      "Bash(cat > *)"
+    ],
+    "additionalDirectories": ["\\tmp"]
   }
 }

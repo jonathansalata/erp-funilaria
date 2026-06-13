@@ -10,6 +10,7 @@ type VehicleDetailViewProps = {
 };
 
 export function VehicleDetailView({ id }: VehicleDetailViewProps) {
+  const hasHydrated = useErpDataStore((state) => state.hasHydrated);
   const vehicle = useErpDataStore((state) => state.vehicles.find((item) => item.id === id));
   const client = useErpDataStore((state) =>
     state.clients.find((item) => item.id === vehicle?.clientId),
@@ -23,6 +24,10 @@ export function VehicleDetailView({ id }: VehicleDetailViewProps) {
   );
   const receivables = useErpDataStore((state) => state.receivables);
   const events = useErpDataStore((state) => state.events);
+
+  if (!hasHydrated) {
+    return null;
+  }
 
   if (!vehicle) {
     notFound();

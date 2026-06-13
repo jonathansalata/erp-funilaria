@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,9 +84,12 @@ export function AppointmentFormDialog({
 
   const [values, setValues] = useState<AppointmentFormValues>(EMPTY_VALUES);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
 
-  function handleOpenChange(value: boolean) {
-    if (value) {
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       if (appointment) {
         setValues({
           title: appointment.title,
@@ -103,7 +107,6 @@ export function AppointmentFormDialog({
         setValues({ ...EMPTY_VALUES, date: defaultDate ?? EMPTY_VALUES.date });
       }
     }
-    onOpenChange(value);
   }
 
   const vehiclesForClient = values.clientId
@@ -132,7 +135,7 @@ export function AppointmentFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{appointment ? "Editar compromisso" : "Novo compromisso"}</DialogTitle>
@@ -353,13 +356,7 @@ export function AppointmentFormDialog({
               </Button>
             )}
             {appointment && appointment.status === "agendado" && onCancelAppointment && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onCancelAppointment();
-                  onOpenChange(false);
-                }}
-              >
+              <Button variant="outline" onClick={() => setIsCancelOpen(true)}>
                 Cancelar agendamento
               </Button>
             )}
@@ -383,6 +380,23 @@ export function AppointmentFormDialog({
           onOpenChange(false);
         }}
         itemLabel={appointment ? `o compromisso "${appointment.title}"` : undefined}
+      />
+
+      <ConfirmActionDialog
+        open={isCancelOpen}
+        onOpenChange={setIsCancelOpen}
+        onConfirm={() => {
+          onCancelAppointment?.();
+          onOpenChange(false);
+        }}
+        title="Cancelar agendamento"
+        description={
+          appointment
+            ? `Confirma o cancelamento do compromisso "${appointment.title}"?`
+            : "Confirma o cancelamento deste compromisso?"
+        }
+        confirmLabel="Cancelar agendamento"
+        variant="destructive"
       />
     </Dialog>
   );

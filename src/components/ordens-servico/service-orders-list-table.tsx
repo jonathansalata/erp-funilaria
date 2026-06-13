@@ -76,7 +76,7 @@ export function ServiceOrdersListTable({
         }
         return (
           <Link
-            href={`/orcamentos/${quote.id}`}
+            href={`/orcamentos/${quote.code.toLowerCase()}`}
             className="text-primary hover:underline"
             onClick={(event) => event.stopPropagation()}
           >
@@ -138,7 +138,7 @@ export function ServiceOrdersListTable({
       }
       filters={filters}
       initialFilters={initialStatus ? { status: initialStatus } : undefined}
-      onRowClick={(order) => router.push(`/ordens-servico/${order.id}`)}
+      onRowClick={(order) => router.push(`/ordens-servico/${order.code.toLowerCase()}`)}
       emptyMessage="Nenhuma ordem de serviço encontrada."
     />
   );

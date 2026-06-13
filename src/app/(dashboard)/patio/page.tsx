@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowRightLeft } from "lucide-react";
 
 import { KanbanBoard, KanbanCard, type KanbanColumnData } from "@/components/shared/kanban-board";
+import { PatioVehicleSheet } from "@/components/patio/patio-vehicle-sheet";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -40,8 +40,10 @@ export default function PatioPage() {
   const setVehicleJourneyStage = useErpDataStore((state) => state.setVehicleJourneyStage);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [pendingStage, setPendingStage] = useState<JourneyStage | null>(null);
+  const [viewingVehicleId, setViewingVehicleId] = useState<string | null>(null);
 
   const editingVehicle = vehicles.find((vehicle) => vehicle.id === editingVehicleId) ?? null;
+  const viewingVehicle = vehicles.find((vehicle) => vehicle.id === viewingVehicleId) ?? null;
 
   const columns = useMemo<KanbanColumnData<Vehicle>[]>(
     () =>
@@ -87,8 +89,18 @@ export default function PatioPage() {
         columns={columns}
         getItemId={(vehicle) => vehicle.id}
         renderCard={(vehicle) => (
-          <VehicleJourneyCard vehicle={vehicle} onChangeStage={() => openStageSheet(vehicle)} />
+          <VehicleJourneyCard
+            vehicle={vehicle}
+            onChangeStage={() => openStageSheet(vehicle)}
+            onView={() => setViewingVehicleId(vehicle.id)}
+          />
         )}
+      />
+
+      <PatioVehicleSheet
+        vehicle={viewingVehicle}
+        open={viewingVehicle !== null}
+        onOpenChange={(open) => !open && setViewingVehicleId(null)}
       />
 
       <Sheet open={editingVehicle !== null} onOpenChange={(open) => !open && closeStageSheet()}>
@@ -135,18 +147,20 @@ export default function PatioPage() {
 function VehicleJourneyCard({
   vehicle,
   onChangeStage,
+  onView,
 }: {
   vehicle: Vehicle;
   onChangeStage: () => void;
+  onView: () => void;
 }) {
   const client = getClientById(vehicle.clientId);
 
   return (
-    <KanbanCard>
-      <Link href={`/veiculos/${vehicle.id}`} className="flex flex-col gap-1 hover:underline">
+    <KanbanCard className="cursor-pointer" onClick={onView}>
+      <div className="flex flex-col gap-1">
         <span className="font-medium">{getVehicleLabel(vehicle)}</span>
         <span className="text-muted-foreground text-xs">{vehicle.plate}</span>
-      </Link>
+      </div>
 
       {client && <span className="text-muted-foreground text-xs">{client.name}</span>}
 
@@ -160,7 +174,15 @@ function VehicleJourneyCard({
         </StatusBadge>
       )}
 
-      <Button variant="outline" size="sm" className="mt-1 self-start" onClick={onChangeStage}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-1 self-start"
+        onClick={(event) => {
+          event.stopPropagation();
+          onChangeStage();
+        }}
+      >
         <ArrowRightLeft />
         Mudar etapa
       </Button>

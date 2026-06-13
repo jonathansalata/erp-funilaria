@@ -9,6 +9,7 @@ import {
 } from "@/components/financeiro/payable-form-dialog";
 import { PayPayableDialog } from "@/components/financeiro/pay-payable-dialog";
 import { PaymentHistoryDialog } from "@/components/financeiro/payment-history-dialog";
+import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import {
   DataTable,
@@ -65,6 +66,7 @@ export function PayablesView() {
   const updatePayable = useErpDataStore((state) => state.updatePayable);
   const payPayable = useErpDataStore((state) => state.payPayable);
   const reversePayable = useErpDataStore((state) => state.reversePayable);
+  const reversePayablePayment = useErpDataStore((state) => state.reversePayablePayment);
   const cancelPayable = useErpDataStore((state) => state.cancelPayable);
   const deletePayable = useErpDataStore((state) => state.deletePayable);
 
@@ -75,6 +77,8 @@ export function PayablesView() {
   const [payingPayable, setPayingPayable] = useState<Payable | undefined>(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPayable, setHistoryPayable] = useState<Payable | undefined>(undefined);
+  const [cancelingPayable, setCancelingPayable] = useState<Payable | undefined>(undefined);
+  const [reversingPayable, setReversingPayable] = useState<Payable | undefined>(undefined);
 
   const summary = getPayablesSummary(payables);
 
@@ -179,6 +183,7 @@ export function PayablesView() {
         if (methods.length === 0) return "—";
         return methods.map((method) => PAYMENT_METHOD_LABELS[method]).join(", ");
       },
+      className: "max-w-[180px] truncate",
     },
     {
       id: "status",
@@ -200,7 +205,7 @@ export function PayablesView() {
             </Button>
           )}
           {row.status === "pago" && (
-            <Button size="sm" variant="outline" onClick={() => reversePayable(row.id)}>
+            <Button size="sm" variant="outline" onClick={() => setReversingPayable(row)}>
               Estornar
             </Button>
           )}
@@ -211,7 +216,7 @@ export function PayablesView() {
             </Button>
           )}
           {row.status === "aberto" && (
-            <Button size="sm" variant="outline" onClick={() => cancelPayable(row.id)}>
+            <Button size="sm" variant="outline" onClick={() => setCancelingPayable(row)}>
               Cancelar
             </Button>
           )}
@@ -320,6 +325,9 @@ export function PayablesView() {
         onOpenChange={setHistoryOpen}
         title={historyPayable?.supplier ?? ""}
         payments={historyPayable?.payments}
+        onReversePayment={(paymentId) =>
+          historyPayable && reversePayablePayment(historyPayable.id, paymentId)
+        }
       />
 
       <ConfirmDeleteDialog
@@ -331,6 +339,34 @@ export function PayablesView() {
           }
         }}
         itemLabel={deletingPayable ? `a conta a pagar de ${deletingPayable.supplier}` : undefined}
+      />
+
+      <ConfirmActionDialog
+        open={Boolean(cancelingPayable)}
+        onOpenChange={(open) => !open && setCancelingPayable(undefined)}
+        onConfirm={() => {
+          if (cancelingPayable) {
+            cancelPayable(cancelingPayable.id);
+          }
+        }}
+        title="Cancelar conta a pagar"
+        description={`Tem certeza de que deseja cancelar a conta a pagar de ${cancelingPayable?.supplier ?? ""}? Esta ação pode ser registrada no histórico de auditoria.`}
+        confirmLabel="Cancelar conta"
+        variant="destructive"
+      />
+
+      <ConfirmActionDialog
+        open={Boolean(reversingPayable)}
+        onOpenChange={(open) => !open && setReversingPayable(undefined)}
+        onConfirm={() => {
+          if (reversingPayable) {
+            reversePayable(reversingPayable.id);
+          }
+        }}
+        title="Estornar pagamento"
+        description={`Tem certeza de que deseja estornar o pagamento da conta de ${reversingPayable?.supplier ?? ""}? O valor pago será revertido e a conta voltará para "Aberto".`}
+        confirmLabel="Estornar"
+        variant="destructive"
       />
     </div>
   );

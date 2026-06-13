@@ -174,7 +174,10 @@ export function InspectionDetail({ inspection }: InspectionDetailProps) {
                 <CardTitle>Orçamento gerado</CardTitle>
               </CardHeader>
               <CardContent>
-                <Link href={`/orcamentos/${quote.id}`} className="font-medium hover:underline">
+                <Link
+                  href={`/orcamentos/${quote.code.toLowerCase()}`}
+                  className="font-medium hover:underline"
+                >
                   {quote.code}
                 </Link>
               </CardContent>

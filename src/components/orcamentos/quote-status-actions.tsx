@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Check, MessageSquare, Send, X } from "lucide-react";
 
+import { ConvertToServiceOrderDialog } from "@/components/orcamentos/convert-to-service-order-dialog";
 import { StatusOverrideAction } from "@/components/shared/status-override-action";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +41,10 @@ const QUOTE_STATUS_OPTIONS = Object.entries(QUOTE_STATUS_META).map(([value, meta
 export function QuoteStatusActions({ quote, status, onStatusChange }: QuoteStatusActionsProps) {
   const router = useRouter();
   const createServiceOrderFromQuote = useErpDataStore((state) => state.createServiceOrderFromQuote);
+  const createAppointment = useErpDataStore((state) => state.createAppointment);
   const changeQuoteStatus = useErpDataStore((state) => state.changeQuoteStatus);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [convertOpen, setConvertOpen] = useState(false);
 
   function handleConfirm() {
     pending?.onConfirm();
@@ -156,20 +159,7 @@ export function QuoteStatusActions({ quote, status, onStatusChange }: QuoteStatu
     );
   } else if (status === "aprovado") {
     flowActions = (
-      <Button
-        onClick={() =>
-          setPending({
-            title: "Converter em Ordem de Serviço",
-            description: `Confirma a conversão do orçamento ${quote.code} em uma Ordem de Serviço?`,
-            confirmLabel: "Converter",
-            onConfirm: () => {
-              const serviceOrder = createServiceOrderFromQuote(quote.id);
-              toast.success("Ordem de Serviço criada a partir do orçamento.");
-              router.push(serviceOrder ? `/ordens-servico/${serviceOrder.id}` : "/ordens-servico");
-            },
-          })
-        }
-      >
+      <Button onClick={() => setConvertOpen(true)}>
         <ArrowRight />
         Converter em OS
       </Button>
@@ -181,6 +171,31 @@ export function QuoteStatusActions({ quote, status, onStatusChange }: QuoteStatu
       {flowActions}
       {statusOverride}
       {dialog}
+      <ConvertToServiceOrderDialog
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        quote={quote}
+        onConfirm={({ dueDate, createAppointment: shouldCreateAppointment, time }) => {
+          const serviceOrder = createServiceOrderFromQuote(quote.id, dueDate);
+          if (shouldCreateAppointment && serviceOrder) {
+            createAppointment({
+              title: `Entrega — ${serviceOrder.code}`,
+              type: "entrega",
+              date: dueDate,
+              time,
+              clientId: quote.clientId,
+              vehicleId: quote.vehicleId,
+              serviceOrderId: serviceOrder.id,
+            });
+            toast.success("Ordem de Serviço criada e entrega agendada com sucesso.");
+          } else {
+            toast.success("Ordem de Serviço criada a partir do orçamento.");
+          }
+          router.push(
+            serviceOrder ? `/ordens-servico/${serviceOrder.code.toLowerCase()}` : "/ordens-servico",
+          );
+        }}
+      />
     </>
   );
 }

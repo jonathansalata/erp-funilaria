@@ -6,6 +6,14 @@
 
 ## Changelog
 
+- **v1.3** — Fase 2B.6 (correções e padronizações operacionais, 2026-06-13): URLs amigáveis de
+  Orçamento/OS passam a usar apenas o código do documento (`/orcamentos/orc-2026-000125`,
+  `/ordens-servico/os-2026-000090`); conversão Orçamento → OS ganhou agendamento inteligente de
+  entrega com validação de conflitos na Agenda; tela de Perfil do usuário
+  (`/configuracoes/perfil`) preparada para futura integração com Supabase Auth; Pátio ganhou
+  painel operacional completo por veículo (`PatioVehicleSheet`); padronização de confirmação e
+  auditoria (`entity_events`) para todas as ações destrutivas, incluindo novo tipo de entidade
+  `appointment`. Detalhes em `DECISIONS.md`, seção "Fase 2B.6".
 - **v1.2** — Revisão de UX/Navegação e arquitetura operacional específica de funilaria, realizada como **Fase 0.5 (Design System e Layout Base)**, antes do início da Fase 1. Principais mudanças: módulo de **Vistoria** (`vehicle_inspections` + itens de checklist polimórficos), controle de **jornada do veículo no pátio** (`vehicle_shop_visits` + taxonomia `vehicle_journey_stage`), **pipelines visuais (Kanban)** para Orçamentos e Ordens de Serviço, **Dashboard segmentado** em visão Operacional (rotina diária) e Gerencial (KPIs/financeiro), **espelhamento de `entity_events`** para timeline completa do veículo (cross-entidade), e reorganização da navegação (sidebar) em grupos por frequência de uso. A fundação visual (sidebar, header, breadcrumbs, dashboards, pipelines, temas claro/escuro) foi implementada nesta fase. Detalhes nas seções 4.6, 7.4.1, 7.4.2, 7.11, 9.1 e 11 (Fase 0.5 e Fase 5.5).
 - **v1.1** — Revisão técnica solicitada antes da Fase 0. Principais mudanças: tabela `organizations` real (multi-tenant desde o início), claims customizados no JWT, numeração amigável (`document_sequences`), timeline de eventos (`entity_events`), notificações internas, auditoria financeira imutável com hash-chain (`financial_audit_logs`), tabela genérica de arquivos (`file_metadata`), stubs de integração (WhatsApp, NF-e/NFS-e, gateways de pagamento), estratégia de views materializadas/particionamento e dimensão `scope` no RBAC. Detalhes na seção 14.
 - **v1.0** — Proposta inicial.

@@ -105,9 +105,10 @@ export function OperationalTab() {
                 key={delivery.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => router.push(`/ordens-servico/${delivery.id}`)}
+                onClick={() => router.push(`/ordens-servico/${delivery.code.toLowerCase()}`)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") router.push(`/ordens-servico/${delivery.id}`);
+                  if (event.key === "Enter")
+                    router.push(`/ordens-servico/${delivery.code.toLowerCase()}`);
                 }}
                 className="border-border hover:bg-muted/50 flex cursor-pointer flex-col gap-1 rounded-lg border px-3 py-2.5 transition-colors"
               >
@@ -122,7 +123,7 @@ export function OperationalTab() {
                 </p>
                 {delivery.quoteCode && delivery.quoteId && (
                   <Link
-                    href={`/orcamentos/${delivery.quoteId}`}
+                    href={`/orcamentos/${delivery.quoteCode?.toLowerCase()}`}
                     className="text-primary text-xs hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >
@@ -228,7 +229,10 @@ export function OperationalTab() {
               {recentQuotes.map((quote) => (
                 <TableRow key={quote.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/orcamentos/${quote.id}`} className="hover:underline">
+                    <Link
+                      href={`/orcamentos/${quote.code.toLowerCase()}`}
+                      className="hover:underline"
+                    >
                       {quote.code}
                     </Link>
                   </TableCell>

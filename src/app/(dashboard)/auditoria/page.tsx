@@ -26,6 +26,7 @@ const ENTITY_TYPE_TO_MODULE: Record<EntityType, string> = {
   inspection: "Vistorias",
   receivable: "Financeiro",
   payable: "Financeiro",
+  appointment: "Agenda",
   auth: "Autenticação",
   user: "Usuários",
   settings: "Configurações",

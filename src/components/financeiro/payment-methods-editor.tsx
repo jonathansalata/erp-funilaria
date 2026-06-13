@@ -65,8 +65,8 @@ export function PaymentMethodsEditor({
       <div className="flex flex-col gap-3">
         {entries.map((entry, index) => (
           <div key={index} className="flex flex-col gap-2 rounded-lg border p-3">
-            <div className="flex items-end gap-2">
-              <div className="flex flex-1 flex-col gap-1.5">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex min-w-[160px] flex-1 flex-col gap-1.5">
                 <Label>Forma de pagamento</Label>
                 <Select
                   value={entry.method}
@@ -74,7 +74,7 @@ export function PaymentMethodsEditor({
                     value && updateEntry(index, { method: value as PaymentMethod })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Forma" />
                   </SelectTrigger>
                   <SelectContent>
@@ -86,7 +86,7 @@ export function PaymentMethodsEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex w-36 flex-col gap-1.5">
+              <div className="flex min-w-[120px] flex-1 flex-col gap-1.5 sm:max-w-36 sm:flex-none">
                 <Label>Valor</Label>
                 <Input
                   type="number"
@@ -96,7 +96,7 @@ export function PaymentMethodsEditor({
                   onChange={(event) => updateEntry(index, { value: Number(event.target.value) })}
                 />
               </div>
-              <div className="flex w-40 flex-col gap-1.5">
+              <div className="flex min-w-[140px] flex-1 flex-col gap-1.5 sm:max-w-40 sm:flex-none">
                 <Label>Data</Label>
                 <Input
                   type="date"
@@ -117,14 +117,14 @@ export function PaymentMethodsEditor({
             </div>
 
             {entry.method === "cartao_credito" && (
-              <div className="flex items-end gap-2">
-                <div className="flex flex-1 flex-col gap-1.5">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex min-w-[160px] flex-1 flex-col gap-1.5">
                   <Label>Bandeira</Label>
                   <Select
                     value={entry.cardBrand ?? ""}
                     onValueChange={(value) => value && updateEntry(index, { cardBrand: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Bandeira" />
                     </SelectTrigger>
                     <SelectContent>
@@ -136,7 +136,7 @@ export function PaymentMethodsEditor({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex w-36 flex-col gap-1.5">
+                <div className="flex min-w-[120px] flex-1 flex-col gap-1.5 sm:max-w-36 sm:flex-none">
                   <Label>Parcelas</Label>
                   <Input
                     type="number"
@@ -149,7 +149,7 @@ export function PaymentMethodsEditor({
                     }
                   />
                 </div>
-                <div className="flex flex-[2] flex-col gap-1.5">
+                <div className="flex min-w-[160px] flex-[2] flex-col gap-1.5">
                   <Label>Observações</Label>
                   <Input
                     value={entry.notes ?? ""}

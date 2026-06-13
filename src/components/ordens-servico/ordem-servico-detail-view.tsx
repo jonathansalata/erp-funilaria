@@ -1,18 +1,34 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { ServiceOrderDetailClient } from "@/components/ordens-servico/service-order-detail-client";
 import { Button } from "@/components/ui/button";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type OrdemServicoDetailViewProps = {
-  id: string;
+  /** Código da OS na URL (ex: "os-2026-000089"), ou `id` legado. */
+  code: string;
 };
 
-export function OrdemServicoDetailView({ id }: OrdemServicoDetailViewProps) {
+export function OrdemServicoDetailView({ code }: OrdemServicoDetailViewProps) {
+  const router = useRouter();
   const hasHydrated = useErpDataStore((state) => state.hasHydrated);
-  const order = useErpDataStore((state) => state.serviceOrders.find((item) => item.id === id));
+  const serviceOrders = useErpDataStore((state) => state.serviceOrders);
+
+  const order =
+    serviceOrders.find((item) => item.code.toLowerCase() === code.toLowerCase()) ??
+    serviceOrders.find((item) => item.id === code);
+
+  const isLegacyIdMatch = Boolean(order) && order!.code.toLowerCase() !== code.toLowerCase();
+
+  useEffect(() => {
+    if (isLegacyIdMatch && order) {
+      router.replace(`/ordens-servico/${order.code.toLowerCase()}`);
+    }
+  }, [isLegacyIdMatch, order, router]);
 
   if (!hasHydrated) {
     return null;
