@@ -81,6 +81,65 @@ A partir desta fase, **toda fase de implementação deve atualizar obrigatoriame
 (`DECISIONS.md`), a documentação técnica (`docs/ARCHITECTURE.md`, quando aplicável), o changelog
 interno e a documentação funcional dos módulos afetados — não apenas o código.
 
+## Fase 2B.6.1 — Correções Pós-Entrega e Consolidação Final da Fase 2 (2026-06-13)
+
+Fase de correções pontuais sobre a Fase 2B.6, sem Supabase, autenticação real ou alterações de
+arquitetura de banco de dados (Fase 3 não iniciada). 4 blocos:
+
+- **Bloco 16 — Perfil do usuário ("This page couldn't load")**: causa raiz identificada como
+  estado persistido (`localStorage`, chave `erp-data-store`) defasado em relação aos campos
+  introduzidos nas fases anteriores — usuários gravados antes do Bloco 12/15 podiam não possuir
+  `permissions[moduleKey]` para módulos novos (ex.: `agenda`), e o app **não possui `error.tsx`**
+  em nenhuma rota, então qualquer exceção não tratada no render (ex.:
+  `user.permissions.agenda.view` sobre `undefined`) zera a tela inteira (percebido como "This page
+  couldn't load"). Corrigido em duas frentes:
+  - Migração da `persist` store (`src/stores/erp-data-store.ts`) elevada de `version: 5` para
+    `version: 6`: normaliza `users[]` preenchendo `permissions` ausentes com
+    `emptyPermissionMatrix()` (cobrindo módulos novos como `agenda`) e migra `lastLogin` →
+    `lastLoginAt` (ver Bloco 16.2).
+  - `src/components/configuracoes/profile-view.tsx`: tabela de permissões passa a usar
+    `user.permissions[moduleKey] ?? emptyPermissionMatrix()[moduleKey]` por módulo, eliminando o
+    acesso indefinido que quebrava o render.
+- **Bloco 16.1 — Usuário atual mock**: novo helper `resolveCurrentUser(users, currentUserId)`
+  (`src/lib/mock-data/users.ts`) com fallback: `currentUserId` → primeiro usuário **ativo** com
+  perfil **Administrador** → primeiro usuário **ativo**. Usado em
+  `src/components/layout/header.tsx` (avatar/nome no menu do usuário, sem mais o placeholder
+  genérico "Usuário"/"?") e em `profile-view.tsx` (tela `/configuracoes/perfil`).
+- **Bloco 16.2 — Campo `lastLoginAt`**: campo `lastLogin` renomeado para `lastLoginAt` em `User`
+  (`src/lib/mock-data/users.ts`), com comentário documentando que, em fase futura com Supabase
+  Auth, este campo deve ser alimentado a partir de `last_sign_in_at`. Exibido como coluna "Último
+  acesso" na listagem de Usuários (`src/components/usuarios/users-view.tsx`) e na tela de Perfil
+  (`profile-view.tsx`). A migração v6 da store renomeia `lastLogin` → `lastLoginAt` em registros
+  persistidos antigos.
+- **Bloco 17 — Fluxo de estorno financeiro (bug de UX)**: causa raiz: o diálogo "Histórico"
+  (`PaymentHistoryDialog`) expunha ações destrutivas de "Estornar" por lançamento, enquanto o
+  botão "Estornar" oferecia apenas confirmação de estorno total às escuras — fluxo invertido.
+  Corrigido com novo componente `src/components/financeiro/reverse-payment-dialog.tsx`
+  (`ReversePaymentDialog`): lista todos os lançamentos (via `Timeline`), permite estorno parcial
+  por lançamento individual (com confirmação) ou "Estornar tudo" (com confirmação), aplicado tanto
+  em Contas a Receber quanto em Contas a Pagar
+  (`src/components/financeiro/receivables-view.tsx`, `payables-view.tsx`).
+  `PaymentHistoryDialog` (`src/components/financeiro/payment-history-dialog.tsx`) passa a ser
+  **somente consulta**, sem ações destrutivas. Eventos de auditoria (`payment_reversed` /
+  `reversed`) continuam emitidos pelas ações de store já existentes
+  (`reverseReceivable`/`reverseReceivablePayment`/`reversePayable`/`reversePayablePayment`), sem
+  alteração.
+- **Bloco 18 — Templates de Checklist ("This page couldn't load")**: mesma classe de causa raiz do
+  Bloco 16 (estado persistido defasado + ausência de `error.tsx`). A migração v6 da store também
+  garante que `checklistTemplates` nunca fique vazio e que ambos os tipos (`inspection` e
+  `service_order`) tenham ao menos um template, restaurando os padrões de
+  `DEFAULT_CHECKLIST_TEMPLATES` quando necessário. Revisão estática completa de
+  `checklist-templates-manager.tsx`, `configuracoes-view.tsx` e das ações de store
+  (`createChecklistTemplate`/`updateChecklistTemplate`/`duplicateChecklistTemplate`/
+  `toggleChecklistTemplateActive`/`deleteChecklistTemplate`) não encontrou outro defeito de
+  código.
+- **Bloco 19 — Auditoria final da Fase 2**: revisão de `NAV_GROUPS`
+  (`src/lib/constants/navigation.ts`) contra as rotas existentes em `src/app/(dashboard)/` —
+  todos os itens de navegação resolvem para páginas existentes. `user-permissions-dialog.tsx` já
+  usa acesso seguro (`matrix?.[moduleKey]?.[action] ?? false`), sem necessidade de ajuste. Nenhum
+  outro link quebrado, rota ausente ou componente não renderizado relacionado à Fase 2 foi
+  encontrado.
+
 ## Fase 2B.5 — Consolidação Operacional, Eliminação de Hardcodes e Fechamento de Lacunas Funcionais (2026-06-12)
 
 Fase de consolidação sobre o ERP operacional mockado (Fase 1), sem Supabase, autenticação, RBAC

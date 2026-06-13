@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  emptyPermissionMatrix,
   MODULE_KEYS,
   MODULE_LABELS,
   PERMISSION_ACTIONS,
   PERMISSION_ACTION_LABELS,
+  resolveCurrentUser,
   USER_ROLE_LABELS,
   USER_STATUS_LABELS,
   USER_STATUS_VARIANTS,
@@ -48,7 +50,7 @@ export function ProfileView() {
   const users = useErpDataStore((state) => state.users);
   const updateUser = useErpDataStore((state) => state.updateUser);
 
-  const user = users.find((item) => item.id === currentUserId);
+  const user = resolveCurrentUser(users, currentUserId);
 
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? "");
@@ -123,9 +125,9 @@ export function ProfileView() {
             </div>
           </div>
 
-          {user.lastLogin && (
+          {user.lastLoginAt && (
             <p className="text-muted-foreground text-xs">
-              Último acesso: {formatDateTime(user.lastLogin)}
+              Último acesso: {formatDateTime(user.lastLoginAt)}
             </p>
           )}
 
@@ -153,16 +155,20 @@ export function ProfileView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MODULE_KEYS.map((moduleKey) => (
-                  <TableRow key={moduleKey}>
-                    <TableCell className="font-medium">{MODULE_LABELS[moduleKey]}</TableCell>
-                    {PERMISSION_ACTIONS.map((action) => (
-                      <TableCell key={action} className="text-center">
-                        {user.permissions[moduleKey][action] ? "✓" : "—"}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                {MODULE_KEYS.map((moduleKey) => {
+                  const modulePermissions =
+                    user.permissions[moduleKey] ?? emptyPermissionMatrix()[moduleKey];
+                  return (
+                    <TableRow key={moduleKey}>
+                      <TableCell className="font-medium">{MODULE_LABELS[moduleKey]}</TableCell>
+                      {PERMISSION_ACTIONS.map((action) => (
+                        <TableCell key={action} className="text-center">
+                          {modulePermissions[action] ? "✓" : "—"}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

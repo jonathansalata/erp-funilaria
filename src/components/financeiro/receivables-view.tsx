@@ -9,6 +9,7 @@ import {
   type ReceivableFormValues,
 } from "@/components/financeiro/receivable-form-dialog";
 import { ReceivePaymentDialog } from "@/components/financeiro/receive-payment-dialog";
+import { ReversePaymentDialog } from "@/components/financeiro/reverse-payment-dialog";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import {
@@ -350,9 +351,6 @@ export function ReceivablesView() {
         onOpenChange={setHistoryOpen}
         title={historyReceivable?.document ?? ""}
         payments={historyReceivable?.payments}
-        onReversePayment={(paymentId) =>
-          historyReceivable && reverseReceivablePayment(historyReceivable.id, paymentId)
-        }
       />
 
       <ConfirmDeleteDialog
@@ -380,18 +378,19 @@ export function ReceivablesView() {
         variant="destructive"
       />
 
-      <ConfirmActionDialog
+      <ReversePaymentDialog
         open={Boolean(reversingReceivable)}
         onOpenChange={(open) => !open && setReversingReceivable(undefined)}
-        onConfirm={() => {
+        title={reversingReceivable?.document ?? ""}
+        payments={reversingReceivable?.payments}
+        onReversePayment={(paymentId) =>
+          reversingReceivable && reverseReceivablePayment(reversingReceivable.id, paymentId)
+        }
+        onReverseAll={() => {
           if (reversingReceivable) {
             reverseReceivable(reversingReceivable.id);
           }
         }}
-        title="Estornar recebimento"
-        description={`Tem certeza de que deseja estornar o recebimento do título ${reversingReceivable?.document ?? ""}? O valor recebido será revertido e o título voltará para "Aberto".`}
-        confirmLabel="Estornar"
-        variant="destructive"
       />
     </div>
   );

@@ -2388,7 +2388,7 @@ export const useErpDataStore = create<ErpDataState>()(
     }),
     {
       name: "erp-data-store",
-      version: 5,
+      version: 6,
       migrate: (persistedState, version) => {
         if (version < 5) {
           // Fase 2B introduziu Usuários, Técnicos, Catálogos de Configurações, Formas de
@@ -2397,6 +2397,41 @@ export const useErpDataStore = create<ErpDataState>()(
           // Contas a Receber/Pagar. Dados persistidos de versões anteriores são descartados
           // em favor dos mocks atuais.
           return {} as ErpDataState;
+        }
+        if (version < 6) {
+          // Fase 2B.6.1 (Bloco 16/16.1/16.2): normaliza registros de `users`
+          // persistidos antes da introdução de `currentUserId` e do módulo
+          // "agenda" na matriz de permissões — preenche módulos ausentes com
+          // permissões vazias e renomeia `lastLogin` para `lastLoginAt`.
+          const state = persistedState as Omit<Partial<ErpDataState>, "users"> & {
+            users?: (Partial<User> & { lastLogin?: string })[];
+          };
+          if (Array.isArray(state.users)) {
+            state.users = state.users.map((user) => {
+              const { lastLogin, lastLoginAt, permissions, ...rest } = user;
+              return {
+                ...rest,
+                lastLoginAt: lastLoginAt ?? lastLogin,
+                permissions: { ...emptyPermissionMatrix(), ...permissions },
+              };
+            });
+          }
+          // Garante que sempre exista ao menos um template ativo por tipo
+          // (Configurações > Templates de Checklist).
+          if (!Array.isArray(state.checklistTemplates) || state.checklistTemplates.length === 0) {
+            state.checklistTemplates = DEFAULT_CHECKLIST_TEMPLATES;
+          } else {
+            for (const kind of ["inspection", "service_order"] as ChecklistTemplateKind[]) {
+              const hasKind = state.checklistTemplates.some((template) => template.kind === kind);
+              if (!hasKind) {
+                const fallback = DEFAULT_CHECKLIST_TEMPLATES.find(
+                  (template) => template.kind === kind,
+                );
+                if (fallback) state.checklistTemplates.push(fallback);
+              }
+            }
+          }
+          return state as ErpDataState;
         }
         return persistedState as ErpDataState;
       },

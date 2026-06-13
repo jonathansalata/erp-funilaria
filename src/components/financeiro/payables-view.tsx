@@ -9,6 +9,7 @@ import {
 } from "@/components/financeiro/payable-form-dialog";
 import { PayPayableDialog } from "@/components/financeiro/pay-payable-dialog";
 import { PaymentHistoryDialog } from "@/components/financeiro/payment-history-dialog";
+import { ReversePaymentDialog } from "@/components/financeiro/reverse-payment-dialog";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import {
@@ -325,9 +326,6 @@ export function PayablesView() {
         onOpenChange={setHistoryOpen}
         title={historyPayable?.supplier ?? ""}
         payments={historyPayable?.payments}
-        onReversePayment={(paymentId) =>
-          historyPayable && reversePayablePayment(historyPayable.id, paymentId)
-        }
       />
 
       <ConfirmDeleteDialog
@@ -355,18 +353,19 @@ export function PayablesView() {
         variant="destructive"
       />
 
-      <ConfirmActionDialog
+      <ReversePaymentDialog
         open={Boolean(reversingPayable)}
         onOpenChange={(open) => !open && setReversingPayable(undefined)}
-        onConfirm={() => {
+        title={reversingPayable?.supplier ?? ""}
+        payments={reversingPayable?.payments}
+        onReversePayment={(paymentId) =>
+          reversingPayable && reversePayablePayment(reversingPayable.id, paymentId)
+        }
+        onReverseAll={() => {
           if (reversingPayable) {
             reversePayable(reversingPayable.id);
           }
         }}
-        title="Estornar pagamento"
-        description={`Tem certeza de que deseja estornar o pagamento da conta de ${reversingPayable?.supplier ?? ""}? O valor pago será revertido e a conta voltará para "Aberto".`}
-        confirmLabel="Estornar"
-        variant="destructive"
       />
     </div>
   );

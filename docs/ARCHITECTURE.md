@@ -6,6 +6,14 @@
 
 ## Changelog
 
+- **v1.4** — Fase 2B.6.1 (correções pós-entrega e consolidação final da Fase 2, 2026-06-13):
+  migração da `persist` store para `version: 6` normalizando `permissions` de usuários antigos e
+  `checklistTemplates`; novo helper `resolveCurrentUser` para resolver o usuário "logado" mock no
+  Header e na tela de Perfil; campo `User.lastLogin` renomeado para `lastLoginAt` (preparação para
+  `last_sign_in_at` do Supabase Auth), exibido em Usuários e Perfil; novo
+  `ReversePaymentDialog` corrige o fluxo de estorno financeiro (Histórico passa a ser somente
+  consulta) em Contas a Receber e Contas a Pagar. Detalhes em `DECISIONS.md`, seção
+  "Fase 2B.6.1".
 - **v1.3** — Fase 2B.6 (correções e padronizações operacionais, 2026-06-13): URLs amigáveis de
   Orçamento/OS passam a usar apenas o código do documento (`/orcamentos/orc-2026-000125`,
   `/ordens-servico/os-2026-000090`); conversão Orçamento → OS ganhou agendamento inteligente de

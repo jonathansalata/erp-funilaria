@@ -194,8 +194,31 @@ export type User = {
   permissions: PermissionMatrix;
   mustChangePassword: boolean;
   createdAt: string;
-  lastLogin?: string;
+  /**
+   * Data/hora do último acesso (Fase 2B.6.1, Bloco 16.2). Sem autenticação real
+   * nesta fase, este campo é preenchido com dados simulados; em uma fase futura
+   * com Supabase Auth, deve ser alimentado a partir de `last_sign_in_at`.
+   */
+  lastLoginAt?: string;
 };
+
+/**
+ * Resolve o usuário "logado" nesta fase (sem autenticação real — Fase 2B.6.1,
+ * Bloco 16.1): usa `currentUserId` quando aponta para um usuário existente;
+ * caso contrário, cai para o primeiro administrador ativo e, na ausência
+ * deste, para o primeiro usuário ativo cadastrado.
+ */
+export function resolveCurrentUser(users: User[], currentUserId?: string): User | undefined {
+  const byId = users.find((user) => user.id === currentUserId);
+  if (byId) return byId;
+
+  const activeAdmin = users.find(
+    (user) => user.status === "ativo" && user.role === "administrador",
+  );
+  if (activeAdmin) return activeAdmin;
+
+  return users.find((user) => user.status === "ativo");
+}
 
 export const USERS: User[] = [
   {
@@ -209,7 +232,7 @@ export const USERS: User[] = [
     permissions: ROLE_PERMISSION_PRESETS.administrador,
     mustChangePassword: false,
     createdAt: "2026-01-10T08:00:00-03:00",
-    lastLogin: "2026-06-12T07:45:00-03:00",
+    lastLoginAt: "2026-06-12T07:45:00-03:00",
   },
   {
     id: "usr-002",
@@ -222,7 +245,7 @@ export const USERS: User[] = [
     permissions: ROLE_PERMISSION_PRESETS.gerente,
     mustChangePassword: false,
     createdAt: "2026-02-03T08:00:00-03:00",
-    lastLogin: "2026-06-11T18:20:00-03:00",
+    lastLoginAt: "2026-06-11T18:20:00-03:00",
   },
   {
     id: "usr-003",
@@ -235,7 +258,7 @@ export const USERS: User[] = [
     permissions: ROLE_PERMISSION_PRESETS.financeiro,
     mustChangePassword: false,
     createdAt: "2026-03-15T08:00:00-03:00",
-    lastLogin: "2026-06-12T08:05:00-03:00",
+    lastLoginAt: "2026-06-12T08:05:00-03:00",
   },
   {
     id: "usr-004",
@@ -248,7 +271,7 @@ export const USERS: User[] = [
     permissions: ROLE_PERMISSION_PRESETS.operacional,
     mustChangePassword: false,
     createdAt: "2026-03-20T08:00:00-03:00",
-    lastLogin: "2026-06-11T17:30:00-03:00",
+    lastLoginAt: "2026-06-11T17:30:00-03:00",
   },
   {
     id: "usr-005",
@@ -261,7 +284,7 @@ export const USERS: User[] = [
     permissions: ROLE_PERMISSION_PRESETS.operacional,
     mustChangePassword: false,
     createdAt: "2026-04-02T08:00:00-03:00",
-    lastLogin: "2026-05-28T17:00:00-03:00",
+    lastLoginAt: "2026-05-28T17:00:00-03:00",
   },
   {
     id: "usr-006",
@@ -280,6 +303,6 @@ export const USERS: User[] = [
     },
     mustChangePassword: true,
     createdAt: "2026-05-20T08:00:00-03:00",
-    lastLogin: "2026-06-05T09:10:00-03:00",
+    lastLoginAt: "2026-06-05T09:10:00-03:00",
   },
 ];

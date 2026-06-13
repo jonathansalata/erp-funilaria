@@ -129,10 +129,10 @@ export function UsersView() {
       ),
     },
     {
-      id: "lastLogin",
+      id: "lastLoginAt",
       header: "Último acesso",
-      cell: (row) => (row.lastLogin ? formatDateTime(row.lastLogin) : "—"),
-      sortValue: (row) => row.lastLogin ?? "",
+      cell: (row) => (row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "—"),
+      sortValue: (row) => row.lastLoginAt ?? "",
       className: "whitespace-nowrap",
     },
     {

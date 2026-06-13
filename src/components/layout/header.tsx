@@ -28,6 +28,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { resolveCurrentUser } from "@/lib/mock-data/users";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 function initials(name: string): string {
@@ -42,9 +43,8 @@ function initials(name: string): string {
 export function Header() {
   const pathname = usePathname();
   const currentUserId = useErpDataStore((state) => state.currentUserId);
-  const currentUser = useErpDataStore((state) =>
-    state.users.find((user) => user.id === currentUserId),
-  );
+  const users = useErpDataStore((state) => state.users);
+  const currentUser = resolveCurrentUser(users, currentUserId);
 
   return (
     <header className="bg-background border-border sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:px-6">
@@ -115,9 +115,7 @@ export function Header() {
             <Avatar size="sm">
               <AvatarFallback>{currentUser ? initials(currentUser.name) : "?"}</AvatarFallback>
             </Avatar>
-            <span className="hidden text-sm font-medium sm:inline">
-              {currentUser?.name ?? "Usuário"}
-            </span>
+            <span className="hidden text-sm font-medium sm:inline">{currentUser?.name}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
