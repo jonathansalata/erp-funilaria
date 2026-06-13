@@ -73,7 +73,10 @@
       "Bash(curl -s -o /tmp/checklist.html -w \"%{http_code}\\\\n\" http://localhost:3000/configuracoes)",
       "Bash(curl -s -D - -o /tmp/perfil_rsc.txt \"http://localhost:3000/configuracoes/perfil\" -H \"RSC: 1\" -H \"Next-Router-State-Tree: %5B%22%22%2C%7B%22children%22%3A%5B%22\\(dashboard\\)%22%2C%7B%22children%22%3A%5B%22configuracoes%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%5D%7D%5D%7D%5D%7D\")",
       "Bash(curl -s -D - -o /tmp/perfil_rsc2.txt \"http://localhost:3000/configuracoes/perfil\" -H \"RSC: 1\")",
-      "Bash(powershell -Command \"\\(Get-Content -Raw src/lib/mock-data/users.ts\\) -replace 'lastLogin:', 'lastLoginAt:' | Set-Content -NoNewline src/lib/mock-data/users.ts\")"
+      "Bash(powershell -Command \"\\(Get-Content -Raw src/lib/mock-data/users.ts\\) -replace 'lastLogin:', 'lastLoginAt:' | Set-Content -NoNewline src/lib/mock-data/users.ts\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/configuracoes)",
+      "Bash(jobs)"
     ],
     "additionalDirectories": ["\\tmp"]
   }

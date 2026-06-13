@@ -6,6 +6,13 @@
 
 ## Changelog
 
+- **v1.5** — Fase 2B.6.2 (responsividade mobile do módulo Configurações, 2026-06-13): navegação
+  principal de Configurações e navegação interna de Catálogos (antes `TabsList`/`Tabs
+orientation="vertical"`) passam a usar `Select` de largura total em telas `<sm` (640px),
+  liberando 100% da largura para o conteúdo; linhas de listagem dos gerenciadores (Catálogos,
+  Status, Formas de Pagamento, Bancos, Técnicos, Templates de Checklist) usam `min-w-0
+flex-1 truncate` para eliminar overflow horizontal; botões de ação elevados de `icon-sm` para
+  `icon` (melhor área de toque). Detalhes em `DECISIONS.md`, seção "Fase 2B.6.2".
 - **v1.4** — Fase 2B.6.1 (correções pós-entrega e consolidação final da Fase 2, 2026-06-13):
   migração da `persist` store para `version: 6` normalizando `permissions` de usuários antigos e
   `checklistTemplates`; novo helper `resolveCurrentUser` para resolver o usuário "logado" mock no

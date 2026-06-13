@@ -178,14 +178,14 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
+      <CardHeader className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
         <div>
           <CardTitle>{kindLabel}</CardTitle>
           <CardDescription>
             Estrutura em etapas e itens utilizada ao gerar checklists de {kindLabel.toLowerCase()}.
           </CardDescription>
         </div>
-        <Button size="sm" onClick={openCreateDialog}>
+        <Button size="sm" onClick={openCreateDialog} className="w-full sm:w-fit">
           <Plus />
           Novo template
         </Button>
@@ -195,10 +195,10 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
           <p className="text-muted-foreground py-4 text-sm">Nenhum template cadastrado.</p>
         )}
         {templates.map((template) => (
-          <div key={template.id} className="flex items-center gap-3 py-3">
-            <div className="flex-1">
+          <div key={template.id} className="flex flex-wrap items-center gap-2 py-3">
+            <div className="min-w-0 flex-1 basis-full sm:basis-auto">
               <p
-                className={`text-sm font-medium ${template.active ? "" : "text-muted-foreground line-through"}`}
+                className={`truncate text-sm font-medium ${template.active ? "" : "text-muted-foreground line-through"}`}
               >
                 {template.name}
               </p>
@@ -207,19 +207,21 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
                 {template.stages.reduce((total, stage) => total + stage.items.length, 0)} item(ns)
               </p>
             </div>
-            <Switch
-              checked={template.active}
-              onCheckedChange={() => toggleChecklistTemplateActive(template.id)}
-            />
-            <Button size="icon-sm" variant="ghost" onClick={() => openEditDialog(template)}>
-              <Pencil />
-            </Button>
-            <Button size="icon-sm" variant="ghost" onClick={() => handleDuplicate(template)}>
-              <Copy />
-            </Button>
-            <Button size="icon-sm" variant="ghost" onClick={() => setDeletingTemplate(template)}>
-              <Trash2 />
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Switch
+                checked={template.active}
+                onCheckedChange={() => toggleChecklistTemplateActive(template.id)}
+              />
+              <Button size="icon" variant="ghost" onClick={() => openEditDialog(template)}>
+                <Pencil />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => handleDuplicate(template)}>
+                <Copy />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setDeletingTemplate(template)}>
+                <Trash2 />
+              </Button>
+            </div>
           </div>
         ))}
       </CardContent>
@@ -228,7 +230,7 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
         open={isCreating || Boolean(editingTemplate)}
         onOpenChange={(open) => !open && closeDialog()}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[85vh] w-full overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isCreating ? "Novo template" : "Editar template"}</DialogTitle>
           </DialogHeader>
@@ -241,6 +243,7 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
                 value={editingName}
                 onChange={(event) => setEditingName(event.target.value)}
                 placeholder={`Ex.: Checklist padrão de ${kindLabel.toLowerCase()}`}
+                className="min-w-0"
               />
             </div>
 
@@ -252,11 +255,12 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
                       value={stage.name}
                       onChange={(event) => updateStageName(stage.id, event.target.value)}
                       placeholder="Nome da etapa"
-                      className="flex-1 font-medium"
+                      className="min-w-0 flex-1 font-medium"
                     />
                     <Button
-                      size="icon-sm"
+                      size="icon"
                       variant="ghost"
+                      className="shrink-0"
                       onClick={() => removeStage(stage.id)}
                       aria-label="Remover etapa"
                     >
@@ -273,11 +277,12 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
                             updateItemLabel(stage.id, item.id, event.target.value)
                           }
                           placeholder="Descrição do item"
-                          className="flex-1"
+                          className="min-w-0 flex-1"
                         />
                         <Button
-                          size="icon-sm"
+                          size="icon"
                           variant="ghost"
+                          className="shrink-0"
                           onClick={() => removeItem(stage.id, item.id)}
                           aria-label="Remover item"
                         >

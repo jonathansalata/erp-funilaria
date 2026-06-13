@@ -45,7 +45,7 @@ export function StatusConfigManager({
       </CardHeader>
       <CardContent className="flex flex-col divide-y">
         {configs.map((config) => (
-          <div key={config.key} className="flex items-center gap-3 py-2">
+          <div key={config.key} className="flex flex-wrap items-center gap-2 py-2">
             <StatusBadge variant={config.variant} className="w-fit shrink-0">
               {config.label}
             </StatusBadge>
@@ -59,29 +59,33 @@ export function StatusConfigManager({
                     if (event.key === "Escape") setEditingKey(undefined);
                   }}
                   autoFocus
-                  className="flex-1"
+                  className="min-w-0 flex-1 basis-full sm:basis-auto"
                 />
-                <Button size="icon-sm" variant="ghost" onClick={saveEdit}>
-                  <Check />
-                </Button>
-                <Button size="icon-sm" variant="ghost" onClick={() => setEditingKey(undefined)}>
-                  <X />
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button size="icon" variant="ghost" onClick={saveEdit}>
+                    <Check />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => setEditingKey(undefined)}>
+                    <X />
+                  </Button>
+                </div>
               </>
             ) : (
               <>
                 <span
-                  className={`flex-1 text-sm ${config.active ? "" : "text-muted-foreground line-through"}`}
+                  className={`min-w-0 flex-1 truncate text-sm ${config.active ? "" : "text-muted-foreground line-through"}`}
                 >
                   {config.label}
                 </span>
-                <Switch
-                  checked={config.active}
-                  onCheckedChange={(checked) => onUpdate(config.key, { active: checked })}
-                />
-                <Button size="icon-sm" variant="ghost" onClick={() => startEdit(config)}>
-                  <Pencil />
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Switch
+                    checked={config.active}
+                    onCheckedChange={(checked) => onUpdate(config.key, { active: checked })}
+                  />
+                  <Button size="icon" variant="ghost" onClick={() => startEdit(config)}>
+                    <Pencil />
+                  </Button>
+                </div>
               </>
             )}
           </div>

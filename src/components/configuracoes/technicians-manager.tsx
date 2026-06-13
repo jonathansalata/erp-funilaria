@@ -76,7 +76,7 @@ export function TechniciansManager() {
               onChange={(event) => setForm((v) => ({ ...v, role: event.target.value }))}
             />
           </div>
-          <Button className="self-end" onClick={handleCreate}>
+          <Button className="w-full sm:w-fit sm:self-end" onClick={handleCreate}>
             <Plus />
             Adicionar
           </Button>
@@ -84,7 +84,7 @@ export function TechniciansManager() {
 
         <div className="flex flex-col divide-y">
           {technicians.map((technician) => (
-            <div key={technician.id} className="flex items-center gap-3 py-2">
+            <div key={technician.id} className="flex flex-wrap items-center gap-2 py-2">
               {editingId === technician.id ? (
                 <>
                   <Input
@@ -92,7 +92,7 @@ export function TechniciansManager() {
                     onChange={(event) =>
                       setEditingForm((v) => ({ ...v, name: event.target.value }))
                     }
-                    className="flex-1"
+                    className="min-w-0 flex-1 basis-full sm:basis-auto"
                     autoFocus
                   />
                   <Input
@@ -100,37 +100,41 @@ export function TechniciansManager() {
                     onChange={(event) =>
                       setEditingForm((v) => ({ ...v, role: event.target.value }))
                     }
-                    className="flex-1"
+                    className="min-w-0 flex-1 basis-full sm:basis-auto"
                   />
-                  <Button size="icon-sm" variant="ghost" onClick={saveEdit}>
-                    <Check />
-                  </Button>
-                  <Button size="icon-sm" variant="ghost" onClick={() => setEditingId(undefined)}>
-                    <X />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="icon" variant="ghost" onClick={saveEdit}>
+                      <Check />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => setEditingId(undefined)}>
+                      <X />
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <>
                   <div
-                    className={`flex-1 text-sm ${technician.active ? "" : "text-muted-foreground line-through"}`}
+                    className={`min-w-0 flex-1 truncate text-sm ${technician.active ? "" : "text-muted-foreground line-through"}`}
                   >
                     <span className="font-medium">{technician.name}</span>
                     <span className="text-muted-foreground"> — {technician.role}</span>
                   </div>
-                  <Switch
-                    checked={technician.active}
-                    onCheckedChange={() => toggleTechnicianActive(technician.id)}
-                  />
-                  <Button size="icon-sm" variant="ghost" onClick={() => startEdit(technician)}>
-                    <Pencil />
-                  </Button>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => setDeletingTechnician(technician)}
-                  >
-                    <Trash2 />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Switch
+                      checked={technician.active}
+                      onCheckedChange={() => toggleTechnicianActive(technician.id)}
+                    />
+                    <Button size="icon" variant="ghost" onClick={() => startEdit(technician)}>
+                      <Pencil />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setDeletingTechnician(technician)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
                 </>
               )}
             </div>

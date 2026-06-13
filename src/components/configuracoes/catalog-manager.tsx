@@ -55,7 +55,7 @@ export function CatalogManager({ catalogKey }: CatalogManagerProps) {
         <CardDescription>{meta.description}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             placeholder={meta.placeholder}
             value={newName}
@@ -63,8 +63,9 @@ export function CatalogManager({ catalogKey }: CatalogManagerProps) {
             onKeyDown={(event) => {
               if (event.key === "Enter") handleCreate();
             }}
+            className="min-w-0"
           />
-          <Button onClick={handleCreate} disabled={!newName.trim()}>
+          <Button onClick={handleCreate} disabled={!newName.trim()} className="sm:w-fit">
             <Plus />
             Adicionar
           </Button>
@@ -77,7 +78,7 @@ export function CatalogManager({ catalogKey }: CatalogManagerProps) {
             </p>
           )}
           {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 py-2">
+            <div key={item.id} className="flex items-center gap-2 py-2">
               {editingId === item.id ? (
                 <>
                   <Input
@@ -88,32 +89,36 @@ export function CatalogManager({ catalogKey }: CatalogManagerProps) {
                       if (event.key === "Escape") setEditingId(undefined);
                     }}
                     autoFocus
-                    className="flex-1"
+                    className="min-w-0 flex-1"
                   />
-                  <Button size="icon-sm" variant="ghost" onClick={saveEdit}>
-                    <Check />
-                  </Button>
-                  <Button size="icon-sm" variant="ghost" onClick={() => setEditingId(undefined)}>
-                    <X />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="icon" variant="ghost" onClick={saveEdit}>
+                      <Check />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => setEditingId(undefined)}>
+                      <X />
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <>
                   <span
-                    className={`flex-1 text-sm ${item.active ? "" : "text-muted-foreground line-through"}`}
+                    className={`min-w-0 flex-1 truncate text-sm ${item.active ? "" : "text-muted-foreground line-through"}`}
                   >
                     {item.name}
                   </span>
-                  <Switch
-                    checked={item.active}
-                    onCheckedChange={() => toggleCatalogItemActive(catalogKey, item.id)}
-                  />
-                  <Button size="icon-sm" variant="ghost" onClick={() => startEdit(item)}>
-                    <Pencil />
-                  </Button>
-                  <Button size="icon-sm" variant="ghost" onClick={() => setDeletingItem(item)}>
-                    <Trash2 />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Switch
+                      checked={item.active}
+                      onCheckedChange={() => toggleCatalogItemActive(catalogKey, item.id)}
+                    />
+                    <Button size="icon" variant="ghost" onClick={() => startEdit(item)}>
+                      <Pencil />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => setDeletingItem(item)}>
+                      <Trash2 />
+                    </Button>
+                  </div>
                 </>
               )}
             </div>

@@ -68,7 +68,7 @@ export function BanksManager() {
               onChange={(event) => setForm((v) => ({ ...v, account: event.target.value }))}
             />
           </div>
-          <Button className="self-end" onClick={handleCreate}>
+          <Button className="w-full sm:w-fit sm:self-end" onClick={handleCreate}>
             <Plus />
             Adicionar
           </Button>
@@ -79,9 +79,9 @@ export function BanksManager() {
             <p className="text-muted-foreground py-4 text-sm">Nenhum banco cadastrado.</p>
           )}
           {banks.map((bank) => (
-            <div key={bank.id} className="flex items-center gap-3 py-2">
+            <div key={bank.id} className="flex items-center gap-2 py-2">
               <div
-                className={`flex-1 text-sm ${bank.active ? "" : "text-muted-foreground line-through"}`}
+                className={`min-w-0 flex-1 truncate text-sm ${bank.active ? "" : "text-muted-foreground line-through"}`}
               >
                 <span className="font-medium">{bank.bankName}</span>
                 <span className="text-muted-foreground">
@@ -89,10 +89,12 @@ export function BanksManager() {
                   — Ag. {bank.agency} / Conta {bank.account}
                 </span>
               </div>
-              <Switch checked={bank.active} onCheckedChange={() => toggleBankActive(bank.id)} />
-              <Button size="icon-sm" variant="ghost" onClick={() => setDeletingBank(bank)}>
-                <Trash2 />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Switch checked={bank.active} onCheckedChange={() => toggleBankActive(bank.id)} />
+                <Button size="icon" variant="ghost" onClick={() => setDeletingBank(bank)}>
+                  <Trash2 />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { AboutSystem } from "@/components/configuracoes/about-system";
 import { BanksManager } from "@/components/configuracoes/banks-manager";
 import { CatalogManager } from "@/components/configuracoes/catalog-manager";
@@ -10,6 +12,13 @@ import { PaymentMethodsManager } from "@/components/configuracoes/payment-method
 import { StatusConfigManager } from "@/components/configuracoes/status-config-manager";
 import { TechnicalLogsView } from "@/components/configuracoes/technical-logs-view";
 import { TechniciansManager } from "@/components/configuracoes/technicians-manager";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CATALOG_META, type CatalogKey } from "@/lib/mock-data/settings";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -24,6 +33,19 @@ const CATALOG_KEYS: CatalogKey[] = [
   "observationTemplates",
 ];
 
+const SETTINGS_TABS = [
+  { value: "catalogos", label: "Catálogos" },
+  { value: "status", label: "Status" },
+  { value: "pagamentos", label: "Formas de Pagamento" },
+  { value: "bancos", label: "Bancos" },
+  { value: "tecnicos", label: "Técnicos" },
+  { value: "checklists", label: "Templates de Checklist" },
+  { value: "empresa", label: "Empresa" },
+  { value: "ajuda", label: "Ajuda" },
+  { value: "logs", label: "Logs Técnicos" },
+  { value: "sobre", label: "Sobre o Sistema" },
+] as const;
+
 export function ConfiguracoesView() {
   const quoteStatusConfigs = useErpDataStore((state) => state.quoteStatusConfigs);
   const serviceOrderStatusConfigs = useErpDataStore((state) => state.serviceOrderStatusConfigs);
@@ -31,6 +53,9 @@ export function ConfiguracoesView() {
   const updateServiceOrderStatusConfig = useErpDataStore(
     (state) => state.updateServiceOrderStatusConfig,
   );
+
+  const [activeTab, setActiveTab] = useState<string>(SETTINGS_TABS[0].value);
+  const [activeCatalog, setActiveCatalog] = useState<CatalogKey>(CATALOG_KEYS[0]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,23 +68,58 @@ export function ConfiguracoesView() {
         </p>
       </div>
 
-      <Tabs defaultValue="catalogos">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="catalogos">Catálogos</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="pagamentos">Formas de Pagamento</TabsTrigger>
-          <TabsTrigger value="bancos">Bancos</TabsTrigger>
-          <TabsTrigger value="tecnicos">Técnicos</TabsTrigger>
-          <TabsTrigger value="checklists">Templates de Checklist</TabsTrigger>
-          <TabsTrigger value="empresa">Empresa</TabsTrigger>
-          <TabsTrigger value="ajuda">Ajuda</TabsTrigger>
-          <TabsTrigger value="logs">Logs Técnicos</TabsTrigger>
-          <TabsTrigger value="sobre">Sobre o Sistema</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => value && setActiveTab(value as string)}>
+        <div className="sm:hidden">
+          <Select
+            value={activeTab}
+            onValueChange={(value) => value && setActiveTab(value as string)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SETTINGS_TABS.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <TabsList className="hidden flex-wrap sm:flex">
+          {SETTINGS_TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="catalogos" className="pt-4">
-          <Tabs defaultValue={CATALOG_KEYS[0]} orientation="vertical">
-            <TabsList variant="line" className="h-fit">
+        <TabsContent value="catalogos" className="flex flex-col gap-3 pt-4">
+          <div className="sm:hidden">
+            <Select
+              value={activeCatalog}
+              onValueChange={(value) => value && setActiveCatalog(value as CatalogKey)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATALOG_KEYS.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {CATALOG_META[key].title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Tabs
+            value={activeCatalog}
+            onValueChange={(value) => value && setActiveCatalog(value as CatalogKey)}
+            orientation="vertical"
+          >
+            <TabsList variant="line" className="hidden h-fit sm:flex">
               {CATALOG_KEYS.map((key) => (
                 <TabsTrigger key={key} value={key}>
                   {CATALOG_META[key].title}

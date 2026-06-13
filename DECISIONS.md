@@ -140,6 +140,60 @@ arquitetura de banco de dados (Fase 3 não iniciada). 4 blocos:
   outro link quebrado, rota ausente ou componente não renderizado relacionado à Fase 2 foi
   encontrado.
 
+## Fase 2B.6.2 — Responsividade Mobile do Módulo Configurações (2026-06-13)
+
+Fase focada exclusivamente na experiência mobile de Configurações (320px–768px), sem alterações
+de regras de negócio, Supabase, autenticação real ou início da Fase 3.
+
+- **Bloco 20 — Responsividade completa**:
+  - **Causa raiz (1) — Tabs horizontais quebrando o layout**: a navegação principal de
+    Configurações usava `TabsList` com 10 abas em linha (`flex-wrap`), e a navegação interna de
+    Catálogos usava `Tabs orientation="vertical"` com uma coluna fixa de 7 abas — ambas
+    inviáveis em telas ≤480px. **Solução**: `src/components/configuracoes/configuracoes-view.tsx`
+    passou a ser um componente controlado (`activeTab`/`activeCatalog` via `useState`). Em
+    telas `<sm` (640px), a navegação principal e a navegação de Catálogos são exibidas como
+    `Select` (`@/components/ui/select`) ocupando a largura total; em `sm:` e acima, os `TabsList`
+    originais (ocultos via `hidden sm:flex`/`hidden h-fit sm:flex`) voltam a ser exibidos. `Tabs`
+    e `Select` compartilham o mesmo estado, preservando o conteúdo de cada aba sem duplicar
+    lógica.
+  - **Causa raiz (2) — Menu lateral de Catálogos ocupando espaço excessivo**: resolvido pelo
+    mesmo `Select` de Catálogos descrito acima — em mobile, o menu lateral de 7 itens (Serviços,
+    Categorias, Centros de Custo, Equipes, Motivos de Cancelamento/Recusa, Modelos de
+    Observação) dá lugar a um único `Select`, liberando 100% da largura para o conteúdo.
+  - **Causa raiz (3) — Cards/formulários comprimidos e overflow horizontal**: linhas de
+    listagem (`flex items-center gap-3`) usavam `flex-1` sem `min-w-0`, permitindo que nomes
+    longos empurrassem a linha além da largura do card (overflow horizontal). **Solução**:
+    aplicado o padrão `min-w-0 flex-1 truncate` ao texto principal e agrupamento das ações
+    (`Switch`/botões) em `<div className="flex shrink-0 items-center gap-1">`, em
+    `catalog-manager.tsx`, `status-config-manager.tsx`, `payment-methods-manager.tsx`,
+    `banks-manager.tsx`, `technicians-manager.tsx` e `checklist-templates-manager.tsx`. Botões
+    "Adicionar"/"Novo template" passam a `w-full` em mobile e `w-fit`/`self-end` em `sm:`. Os
+    grids de formulário (`grid gap-3/gap-4 sm:grid-cols-...`) já eram coluna única por padrão em
+    mobile — mantidos sem alteração estrutural.
+  - **Bloco 18 (Templates de Checklist) em mobile**: `CardHeader` de
+    `checklist-templates-manager.tsx` passou de `flex-row` fixo para `flex-col items-start gap-4
+sm:flex-row sm:justify-between` (botão "Novo template" abaixo do título em mobile, full
+    width). Linha de cada template usa `flex-wrap` com nome/descrição em `basis-full
+sm:basis-auto` e ações agrupadas. No diálogo de edição, `Input` de nome de
+    etapa/item recebeu `min-w-0 flex-1` para não empurrar o botão de remover para fora da tela.
+  - **Área de toque**: todos os botões de ação (`Pencil`, `Trash2`, `Check`, `X`, `Copy`) nas
+    listagens de Configurações foram elevados de `size="icon-sm"` (28px) para `size="icon"`
+    (32px), reduzindo o risco de toques acidentais em telas pequenas.
+  - **Modais**: `DialogContent` (`@/components/ui/dialog`) já usa
+    `max-w-[calc(100%-2rem)]` e `DialogFooter` já empilha botões em coluna em mobile
+    (`flex-col-reverse sm:flex-row`) — confirmado sem necessidade de alteração. O diálogo de
+    edição de template de checklist (`max-h-[85vh] overflow-y-auto`) ganhou `w-full` explícito
+    para preencher a largura disponível em mobile.
+  - **Tabela de Logs Técnicos**: `src/components/ui/table.tsx` já envolve a tabela em
+    `overflow-x-auto` — scroll horizontal contido dentro do card, sem afetar o layout da página.
+    Confirmado sem alteração.
+
+Validação mobile (320px, 360px, 390px, 412px, 480px, 768px) realizada por revisão estática do
+HTML/Tailwind gerado (sem ferramenta de browser disponível no ambiente): em todas as larguras,
+a navegação principal e a de Catálogos usam `Select` de largura total até 640px; linhas de
+listagem não excedem a largura do card (`min-w-0`/`truncate`); formulários permanecem em coluna
+única; modais cabem em `calc(100%-2rem)` com rolagem interna.
+
 ## Fase 2B.5 — Consolidação Operacional, Eliminação de Hardcodes e Fechamento de Lacunas Funcionais (2026-06-12)
 
 Fase de consolidação sobre o ERP operacional mockado (Fase 1), sem Supabase, autenticação, RBAC
