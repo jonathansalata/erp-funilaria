@@ -46,6 +46,7 @@ function initials(name: string): string {
  * estrutura compatível com futura integração ao Supabase Auth (Fase 3).
  */
 export function ProfileView() {
+  const hasHydrated = useErpDataStore((state) => state.hasHydrated);
   const currentUserId = useErpDataStore((state) => state.currentUserId);
   const users = useErpDataStore((state) => state.users);
   const updateUser = useErpDataStore((state) => state.updateUser);
@@ -54,12 +55,19 @@ export function ProfileView() {
 
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? "");
-  const [loadedUserId, setLoadedUserId] = useState(user?.id);
+  const [loadedUserId, setLoadedUserId] = useState<string | undefined>(undefined);
 
-  if (user && user.id !== loadedUserId) {
+  if (hasHydrated && user && user.id !== loadedUserId) {
     setLoadedUserId(user.id);
     setPhone(user.phone ?? "");
     setJobTitle(user.jobTitle ?? "");
+  }
+
+  // Evita divergência entre o snapshot renderizado no servidor (dados padrão) e o estado
+  // persistido no cliente (localStorage), que poderia causar erro de hidratação
+  // (Fase 2B.8.4 — Bloco 29).
+  if (!hasHydrated) {
+    return null;
   }
 
   if (!user) {

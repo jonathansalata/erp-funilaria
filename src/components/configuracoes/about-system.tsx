@@ -1,10 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAppMetadata } from "@/lib/app-metadata";
 import { VERSION_HISTORY } from "@/lib/mock-data/settings";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { getVersionInfo } from "@/lib/version";
 
 export function AboutSystem() {
-  const { version, build, deploy, environment } = getVersionInfo();
+  const { version, build, deploy, environment } = getAppMetadata();
 
   return (
     <div className="flex flex-col gap-6">

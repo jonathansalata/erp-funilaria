@@ -114,6 +114,89 @@ warrantyPeriod)`. `updateServiceOrder` (store) passou a aceitar esses 3 campos (
   evitada), cobrindo os casos "sem dados"/"valores zerados" da validação solicitada. Mudança de mês
   e de ano (inclusive rollover dezembro→janeiro) são tratados por `getPreviousMonthPrefix`.
 
+## Fase 2B.8.4 — Estabilização Final Pré-Fase 3 (2026-06-13)
+
+Encerramento da Fase 2: correção dos dois bugs críticos confirmados (Blocos 29 e 30), causa raiz
+comum identificada, e correção sistêmica de um aviso do Base UI (Bloco 31). Auditoria final de
+rotas (Bloco 32). Sem alteração de identidade visual, sem Supabase/Auth/RBAC e sem início da
+Fase 3.
+
+- **Causa raiz comum dos Blocos 29 e 30**: `ProfileView` (`profile-view.tsx`) e
+  `ChecklistTemplatesManager` (`checklist-templates-manager.tsx`) leem diretamente dados
+  persistidos via `zustand/persist` (`users`/`currentUserId` e `checklistTemplates`,
+  respectivamente) sem aguardar a reidratação do `localStorage`. O HTML gerado no servidor usa o
+  estado inicial (mocks padrão); no primeiro paint do cliente — antes do callback
+  `onRehydrateStorage`/`setHasHydrated(true)` — o valor já pode vir do `localStorage`
+  (nome/telefone/cargo de usuário editados, templates de checklist criados/duplicados/excluídos),
+  causando divergência de conteúdo entre o HTML do servidor e o primeiro render do cliente (erro
+  de hidratação do React) e quebrando a navegação para essas telas ("This page couldn't load").
+  Esse mesmo problema já era tratado em outras 5 telas de detalhe (`ClientDetailView`,
+  `VehicleDetailView`, `InspectionDetailView`, `OrcamentoDetailView`,
+  `OrdemServicoDetailView`) com o guard `if (!hasHydrated) return null`, mas não havia sido
+  aplicado a `ProfileView`/`ChecklistTemplatesManager`.
+- **Bloco 29 — Perfil do usuário**: `ProfileView` passou a ler `state.hasHydrated` e retorna `null`
+  enquanto `!hasHydrated`, evitando o mismatch de hidratação. A sincronização de `phone`/`jobTitle`
+  a partir do usuário corrente (`loadedUserId`) agora só ocorre após `hasHydrated`, garantindo que
+  os campos editáveis reflitam os dados já reidratados do `localStorage` (e não os valores
+  default renderizados no servidor).
+- **Bloco 30 — Templates de Checklist**: `ChecklistTemplatesManager` (instanciado para `kind:
+"inspection"` e `kind: "service_order"` em Configurações → Templates de Checklist) passou a
+  retornar `null` enquanto `!hasHydrated`, pelo mesmo motivo — a lista de templates persistida
+  pode divergir de `DEFAULT_CHECKLIST_TEMPLATES` (templates criados/duplicados/renomeados pelo
+  usuário).
+- **Bloco 31 — Avisos "Base UI: A component that acts as a button expected a native button..."**:
+  causa raiz era o componente `Button` (`src/components/ui/button.tsx`), que envolve
+  `@base-ui/react/button` com `nativeButton` padrão `true` (espera renderizar um `<button>`).
+  Diversos usos legítimos passam `render={<Link href="..." />}` (ex.: `entity-header.tsx`,
+  páginas de listagem "Novo X", botões "Voltar para..."), fazendo o Base UI renderizar `<a>` em
+  vez de `<button>` e emitir o aviso em todo render, em dev. `Button` agora detecta
+  automaticamente esse caso: se `render` for um elemento React cujo `type` não é `"button"`
+  (ex.: `<Link>`, `<a>`), aplica `nativeButton={false}` por padrão (a prop explícita continua
+  tendo prioridade, preservando o uso já existente em `pagination.tsx`). O mesmo ajuste foi
+  replicado em `SheetClose` (`sheet.tsx`), usado com `render={<Link href={item.href} />}` no menu
+  mobile do `Header`. Nenhuma marcação HTML muda — `<a>` continua `<a>`, `<button>` continua
+  `<button>` — apenas os atributos ARIA/role aplicados pelo Base UI passam a corresponder ao
+  elemento real renderizado, preservando a acessibilidade.
+- **Bloco 32 — Auditoria final de rotas**: `npm run build` gera com sucesso as 25 rotas da
+  aplicação (estáticas e dinâmicas) sem erros; verificação adicional via requisições HTTP ao
+  servidor de desenvolvimento confirmou `200 OK` para `/`, `/configuracoes`,
+  `/configuracoes/perfil`, `/usuarios`, `/relatorios`, `/financeiro/dre`,
+  `/financeiro/contas-a-pagar` e `/agenda`. Nenhuma rota apresentou erro de carregamento após as
+  correções dos Blocos 29-31.
+
+## Fase 2B.8.5 — Versionamento Automático e Metadados de Build (2026-06-13)
+
+Encerrada a Fase 2 ([[Fase 2B.8.4]]), o rodapé/sidebar e a tela "Sobre o Sistema" passam a exibir
+metadados de build totalmente dinâmicos, preparando o repositório para o deploy contínuo via
+GitHub + Vercel já existente. Sem alteração de regras de negócio, layout, identidade visual ou
+navegação.
+
+- **Fonte única de versão**: `src/lib/app-metadata.ts` (novo) importa `version` diretamente de
+  `package.json` — nenhum componente mais possui versão fixa no código. O fluxo
+  `npm version patch|minor|major` passa a refletir automaticamente no rodapé, sem alterações de
+  código.
+- **Metadados de build**: `next.config.ts` resolve, em tempo de build, o commit git
+  (`VERCEL_GIT_COMMIT_SHA` quando disponível na Vercel, com fallback para
+  `git rev-parse HEAD` em ambiente local) e a data do commit (`git log -1 --format=%cI`, com
+  fallback para a data atual), expondo-os como `NEXT_PUBLIC_GIT_SHA` e
+  `NEXT_PUBLIC_BUILD_DATE`. `NEXT_PUBLIC_VERCEL_ENV` propaga `VERCEL_ENV` (development/preview/
+  production) quando o build ocorre na Vercel.
+- **`getAppMetadata()`** (`src/lib/app-metadata.ts`) consolida tudo: `version` (package.json),
+  `build` (SHA truncado para 7 caracteres, ou `"local"` quando não há informação de git/Vercel),
+  `deploy` (data ISO do commit/build) e `environment`, traduzido via mapa
+  `development → Desenvolvimento`, `preview → Homologação`, `production → Produção` (prioriza
+  `NEXT_PUBLIC_VERCEL_ENV`, com fallback para `NODE_ENV`) — nenhum valor técnico é exposto ao
+  usuário final.
+- **Consumidores**: `SidebarVersion` (rodapé do menu) e `AboutSystem`
+  (Configurações → Sobre o Sistema) passam a consumir `getAppMetadata()`. O antigo
+  `src/lib/version.ts` (que já lia de variáveis de ambiente, mas com nomes/format incompatíveis
+  com a integração Vercel e sem mapeamento de "preview") foi removido e substituído por
+  `app-metadata.ts`.
+- **Compatibilidade local**: sem `VERCEL_GIT_COMMIT_SHA`/`VERCEL_ENV`, o build usa o git local
+  (`git rev-parse HEAD` + data do commit) e `NODE_ENV` (`development` em `npm run dev`,
+  `production` em `npm run build`); se nenhum git estiver disponível, `build` exibe `"local"` e
+  `deploy` usa a data/hora do build, sem erros de renderização.
+
 ## Fase 2B.7 — Refinamento UX/UI Mobile Global (2026-06-13)
 
 Fase exclusivamente de refinamento da experiência **Mobile**, sem alteração de identidade visual

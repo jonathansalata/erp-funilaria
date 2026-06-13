@@ -39,6 +39,7 @@ function createEmptyStage(): ChecklistTemplateStage {
 }
 
 export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerProps) {
+  const hasHydrated = useErpDataStore((state) => state.hasHydrated);
   const templates = useErpDataStore((state) =>
     state.checklistTemplates.filter((template) => template.kind === kind),
   );
@@ -59,6 +60,13 @@ export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerPro
   );
 
   const kindLabel = CHECKLIST_TEMPLATE_KIND_LABELS[kind];
+
+  // Evita divergência entre o snapshot renderizado no servidor (templates padrão) e o estado
+  // persistido no cliente (localStorage), que poderia causar erro de hidratação
+  // (Fase 2B.8.4 — Bloco 30).
+  if (!hasHydrated) {
+    return null;
+  }
 
   function openCreateDialog() {
     setIsCreating(true);

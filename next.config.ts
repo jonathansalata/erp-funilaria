@@ -2,11 +2,13 @@ import { execSync } from "child_process";
 
 import type { NextConfig } from "next";
 
-import packageJson from "./package.json";
+function getGitCommitSha(): string {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    return process.env.VERCEL_GIT_COMMIT_SHA;
+  }
 
-function getGitCommit(): string {
   try {
-    return execSync("git rev-parse --short HEAD").toString().trim();
+    return execSync("git rev-parse HEAD").toString().trim();
   } catch {
     return "";
   }
@@ -22,10 +24,9 @@ function getGitCommitDate(): string {
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_APP_VERSION: packageJson.version,
-    NEXT_PUBLIC_GIT_COMMIT: getGitCommit(),
+    NEXT_PUBLIC_GIT_SHA: getGitCommitSha(),
     NEXT_PUBLIC_BUILD_DATE: getGitCommitDate() || new Date().toISOString(),
-    NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV ?? "development",
+    NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "",
   },
 };
 

@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -44,11 +45,22 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
+  render,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // Quando `render` aponta para um elemento que não é um <button> nativo (ex.: <Link>, <a>),
+  // o Base UI espera `nativeButton={false}` — caso contrário emite o aviso "expected a native
+  // <button>". Detecta esse caso automaticamente para evitar repetir a prop em cada uso
+  // (Fase 2B.8.4 — Bloco 31).
+  const resolvedNativeButton =
+    nativeButton ?? !(React.isValidElement(render) && render.type !== "button");
+
   return (
     <ButtonPrimitive
       data-slot="button"
+      nativeButton={resolvedNativeButton}
+      render={render}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

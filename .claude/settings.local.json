@@ -88,8 +88,14 @@
       "PowerShell(npm run typecheck 2>&1)",
       "PowerShell(npm run lint 2>&1)",
       "PowerShell(npm run build 2>&1)",
-      "Bash(curl -s \"http://localhost:3000/financeiro/contas-a-pagar?status=vencido\" -o /tmp/page4.html)"
+      "Bash(curl -s \"http://localhost:3000/financeiro/contas-a-pagar?status=vencido\" -o /tmp/page4.html)",
+      "Bash(curl -s http://localhost:3000/configuracoes/perfil -o /tmp/perfil.html -w \"%{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:3000/configuracoes/perfil -o /tmp/perfil2.html -w \"%{http_code}\\\\n\")",
+      "Bash(rm \"c:/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026/src/lib/version.ts\")"
     ],
-    "additionalDirectories": ["\\tmp"]
+    "additionalDirectories": [
+      "\\tmp",
+      "c:\\Users\\Jonathan\\Desktop\\ERP-Funilaria-11-06-2026\\src\\lib"
+    ]
   }
 }

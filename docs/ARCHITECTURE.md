@@ -6,6 +6,29 @@
 
 ## Changelog
 
+- **v1.10** — Fase 2B.8.5 (versionamento automático e metadados de build, 2026-06-13): nova fonte
+  única `src/lib/app-metadata.ts`, que lê `version` de `package.json` e expõe `getAppMetadata()`
+  com `version`, `build` (SHA git/Vercel truncado, ou `"local"`), `deploy` (data do
+  commit/build) e `environment` (`development → Desenvolvimento`, `preview → Homologação`,
+  `production → Produção`). `next.config.ts` resolve `NEXT_PUBLIC_GIT_SHA`,
+  `NEXT_PUBLIC_BUILD_DATE` e `NEXT_PUBLIC_VERCEL_ENV` a partir de `VERCEL_GIT_COMMIT_SHA`/
+  `VERCEL_ENV` (Vercel) ou do git local. `SidebarVersion` e `AboutSystem` passam a consumir
+  `getAppMetadata()`; `src/lib/version.ts` foi removido. O fluxo `npm version
+patch|minor|major` agora reflete automaticamente no rodapé. Detalhes em `DECISIONS.md`, seção
+  "Fase 2B.8.5".
+- **v1.9** — Fase 2B.8.4 (estabilização final pré-Fase 3, 2026-06-13): corrigidos os dois últimos
+  bugs críticos da Fase 2. `ProfileView` (`/configuracoes/perfil`) e `ChecklistTemplatesManager`
+  (Configurações → Templates de Checklist) liam dados persistidos via `zustand/persist`
+  (`users`/`currentUserId` e `checklistTemplates`) sem aguardar `hasHydrated`, causando erro de
+  hidratação e "This page couldn't load"; ambos agora retornam `null` enquanto `!hasHydrated`,
+  seguindo o mesmo padrão já usado em `client-detail-view.tsx`, `vehicle-detail-view.tsx`,
+  `inspection-detail-view.tsx`, `orcamento-detail-view.tsx` e `ordem-servico-detail-view.tsx`.
+  Também corrigido o aviso "Base UI: A component that acts as a button expected a native
+  <button>...": `Button` (`button.tsx`) e `SheetClose` (`sheet.tsx`) agora detectam quando `render`
+  aponta para um elemento que não é `<button>` (ex.: `<Link>`, `<a>`) e aplicam
+  `nativeButton={false}` automaticamente, sem alterar a marcação ou a acessibilidade. Auditoria
+  final de rotas confirmou build e navegação sem erros. Detalhes em `DECISIONS.md`, seção
+  "Fase 2B.8.4".
 - **v1.8** — Fase 2B.8.3 (consolidação operacional pré-Fase 3, 2026-06-13): clique no KPI
   "Vencidos" (Contas a Pagar) agora atualiza tabela, filtro visual e contador instantaneamente, sem
   F5 — `DataTable` realinha `activeFilters`/paginação durante a renderização quando

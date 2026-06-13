@@ -15,8 +15,20 @@ function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
   return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
 }
 
-function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
-  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
+function SheetClose({ nativeButton, render, ...props }: SheetPrimitive.Close.Props) {
+  // Mesma lógica do Button: quando `render` aponta para um elemento que não é um <button>
+  // nativo (ex.: <Link>), o Base UI espera `nativeButton={false}` (Fase 2B.8.4 — Bloco 31).
+  const resolvedNativeButton =
+    nativeButton ?? !(React.isValidElement(render) && render.type !== "button");
+
+  return (
+    <SheetPrimitive.Close
+      data-slot="sheet-close"
+      nativeButton={resolvedNativeButton}
+      render={render}
+      {...props}
+    />
+  );
 }
 
 function SheetPortal({ ...props }: SheetPrimitive.Portal.Props) {
