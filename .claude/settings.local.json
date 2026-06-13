@@ -76,7 +76,9 @@
       "Bash(powershell -Command \"\\(Get-Content -Raw src/lib/mock-data/users.ts\\) -replace 'lastLogin:', 'lastLoginAt:' | Set-Content -NoNewline src/lib/mock-data/users.ts\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/configuracoes)",
-      "Bash(jobs)"
+      "Bash(jobs)",
+      "Bash(cd \"/c/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026\" && grep -n \"v1.5\\\\|v1.4\\\\|## Changelog\\\\|Changelog\" docs/ARCHITECTURE.md | head -20)",
+      "Read(//c/c/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026/docs/**)"
     ],
     "additionalDirectories": ["\\tmp"]
   }

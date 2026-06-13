@@ -3,6 +3,69 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Fase 2B.7 — Refinamento UX/UI Mobile Global (2026-06-13)
+
+Fase exclusivamente de refinamento da experiência **Mobile**, sem alteração de identidade visual
+(tipografia, componentes, espaçamentos desktop) nem de regras de negócio (Fase 3 não iniciada,
+Supabase/Auth/RBAC inalterados). Auditoria global de responsividade nos 12 módulos do ERP
+(Dashboard, Pipeline de Orçamentos, Pipeline de OS, Pátio, Vistorias, Agenda, Clientes, Veículos,
+Financeiro, Relatórios, Configurações, Usuários) e correção dos pontos de overflow horizontal e
+componentes desktop espremidos em mobile.
+
+- **Padrão global obrigatório (causa raiz)**: nenhuma regra impedia o `<body>` de gerar scroll
+  horizontal quando algum elemento interno excedia a largura da viewport. Adicionado
+  `overflow-x: hidden` ao `body` em `src/app/globals.css`. Scroll horizontal permanece permitido
+  apenas dentro de containers próprios (tabelas via `Table`/`overflow-x-auto`, Kanban, listas
+  técnicas).
+- **Pipeline de Orçamentos e Pipeline de OS — tabela de itens estourando a página (causa raiz)**:
+  `quote-detail-client.tsx` e `service-order-detail-client.tsx` usam `<div className="grid gap-6
+xl:grid-cols-3">` com uma coluna `xl:col-span-2`. Itens de grid/flex têm `min-width: auto` por
+  padrão, então uma tabela larga (`Itens do orçamento` / `Itens / Serviços`) forçava a coluna —
+  e a página inteira — a crescer além da viewport, mesmo com o componente `Table` já envolvendo o
+  `<table>` em `overflow-x-auto`. Corrigido adicionando `min-w-0` ao grid principal e às duas
+  colunas (`flex flex-col gap-6 xl:col-span-2` e `flex flex-col gap-6`), permitindo que o `Card`
+  encolha até a largura da viewport e o scroll horizontal fique contido **dentro** do card da
+  tabela. Observações, anexos (FileDropzone) e histórico/timeline já eram responsivos e não
+  precisaram de ajuste adicional.
+- **Relatórios — navegação principal (7 abas) e sub-abas de Relatórios Financeiros (8 abas)**:
+  aplicado o mesmo padrão Select-mobile + Tabs-desktop já validado em Configurações (Fase 2B.6.2).
+  `reports-view.tsx` e `financial-reports-view.tsx` tiveram seus `Tabs` tornados controlados
+  (`activeTab`/`activeReportTab`), com um `Select` de largura total exibido apenas em `<sm`
+  (`sm:hidden`) e o `TabsList` original oculto em mobile (`hidden sm:flex`).
+- **Relatórios — filtros do relatório financeiro**: grid `grid gap-3 sm:grid-cols-2 lg:grid-cols-5`
+  já empilhava em coluna única abaixo de `sm`, mas os `Select` (Cliente, Veículo, Forma de
+  pagamento, Status) usavam a largura padrão `w-fit`, ficando estreitos e desalinhados em mobile.
+  Adicionado `className="w-full"` a cada `SelectTrigger`. O filtro de Veículo passou a exibir
+  "Placa — Modelo/Marca/Ano" (`{vehicle.plate} — {getVehicleLabel(vehicle)}`) em vez de apenas a
+  placa, tornando o rótulo mais amigável (demais filtros — Cliente, Forma de pagamento, Status —
+  já usavam nome/label legível e a opção "Todos"/"Todas").
+- **`ReportTable` — cabeçalho do card**: `CardHeader` com `flex flex-row items-start
+justify-between` espremia título + botões de exportar PDF/CSV/Imprimir na mesma linha em telas
+  estreitas. Alterado para `flex flex-col items-start gap-4 sm:flex-row sm:justify-between`
+  (mesmo padrão já usado em `checklist-templates-manager.tsx`), empilhando título e ações em
+  mobile.
+- **Área de toque — Agenda**: botões de navegação do calendário (mês/semana/dia anterior e
+  próximo) em `appointment-calendar.tsx` estavam em `size="icon-sm"` (28px); elevados para
+  `size="icon"` (32px), consistente com o ajuste já feito em Configurações na Fase 2B.6.2.
+- **Área de toque — Anexos (`FileDropzone`)**: botão de remover arquivo usava `size="icon-xs"`
+  (24px); elevado para `size="icon-sm"` (28px) — usado em Orçamentos, OS (fotos antes/depois) e
+  demais módulos com upload.
+- **Demais pontos auditados sem necessidade de correção**: `KanbanBoard` (Pátio/Kanban) já usa
+  `overflow-x-auto` com colunas `w-[85vw] sm:w-72`; `DataTable`/`ReportTable` já usa `Table` com
+  `overflow-x-auto` e filtros em `flex flex-wrap`; `FileDropzone` já usa grid responsiva
+  (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`); `PaymentMethodsEditor` (Financeiro) usa `flex
+flex-wrap` com `min-w-[Npx]`, portanto os campos quebram linha em mobile sem causar overflow;
+  `EntityHeader` já empilha título/ações (`flex-col sm:flex-row`, `flex-wrap`).
+
+### Validação mobile (Fase 2B.7)
+
+Revisão estática em 320px/360px/390px/412px/480px/768px (sem ferramenta de browser disponível no
+ambiente), cobrindo os 12 módulos auditados: sem overflow horizontal de página (`body
+overflow-x-hidden` + `min-w-0` nos containers de tabela), navegação de Relatórios (principal e
+financeira detalhada) como `Select` de largura total até 640px, filtros do relatório financeiro em
+coluna única com `w-full`, botões de ação com no mínimo 32px (`icon`)/28px (`icon-sm`), e nenhuma
+tabela/cards quebrando o layout da página (scroll, quando necessário, contido no card).
+
 ## Fase 2B.6 — Correções, Padronização e Fechamentos Operacionais (2026-06-13)
 
 Fase de correções e padronizações sobre o ERP operacional mockado (Fase 1 + Fase 2B/2B.5), sem

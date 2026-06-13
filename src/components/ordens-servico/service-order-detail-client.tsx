@@ -142,8 +142,8 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
 
       <ServiceOrderEditDialog open={editOpen} onOpenChange={setEditOpen} order={currentOrder} />
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="flex flex-col gap-6 xl:col-span-2">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle>Itens / Serviços</CardTitle>
@@ -269,7 +269,7 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
           </Card>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Cliente</CardTitle>

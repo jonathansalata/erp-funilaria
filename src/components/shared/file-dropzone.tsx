@@ -104,7 +104,7 @@ export function FileDropzone({ files, onFilesChange, className }: FileDropzonePr
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-xs"
+                  size="icon-sm"
                   onClick={() => removeFile(file.id)}
                   aria-label={`Remover ${file.name}`}
                 >

@@ -77,13 +77,13 @@ export function AppointmentCalendar({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon-sm" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
             <ChevronLeft />
           </Button>
           <Button variant="outline" size="sm" onClick={goToToday}>
             Hoje
           </Button>
-          <Button variant="outline" size="icon-sm" onClick={() => navigate(1)}>
+          <Button variant="outline" size="icon" onClick={() => navigate(1)}>
             <ChevronRight />
           </Button>
           <span className="font-heading text-sm font-semibold capitalize">

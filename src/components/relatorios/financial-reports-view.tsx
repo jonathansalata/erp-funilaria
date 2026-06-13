@@ -33,7 +33,7 @@ import {
 import { getQuoteById } from "@/lib/mock-data/quotes-data";
 import { REFERENCE_DATE } from "@/lib/mock-data/reference-date";
 import { getServiceOrderById } from "@/lib/mock-data/service-orders-data";
-import { getVehicleLabelById, VEHICLES } from "@/lib/mock-data/vehicles";
+import { getVehicleLabel, getVehicleLabelById, VEHICLES } from "@/lib/mock-data/vehicles";
 import { PDF_COLORS } from "@/lib/pdf/pdf-utils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -64,6 +64,17 @@ const STATUS_OPTIONS = [
   { value: "cancelado", label: "Cancelado" },
 ];
 
+const FINANCIAL_REPORT_TABS = [
+  { value: "recebimentos", label: "Recebimentos" },
+  { value: "pagamentos", label: "Pagamentos" },
+  { value: "abertas", label: "Contas em aberto" },
+  { value: "vencidas", label: "Contas vencidas" },
+  { value: "parciais", label: "Pagamentos parciais" },
+  { value: "por-forma", label: "Receitas por forma" },
+  { value: "fluxo-caixa", label: "Fluxo de Caixa" },
+  { value: "dre", label: "DRE" },
+] as const;
+
 /**
  * Relatórios Financeiros detalhados (Fase 2D): Recebimentos, Pagamentos, Contas em aberto,
  * Contas vencidas, Pagamentos parciais, Receitas por forma de pagamento, Fluxo de Caixa e DRE —
@@ -79,6 +90,7 @@ export function FinancialReportsView() {
   const [vehicleId, setVehicleId] = useState("all");
   const [paymentMethod, setPaymentMethod] = useState("all");
   const [status, setStatus] = useState("all");
+  const [activeReportTab, setActiveReportTab] = useState<string>(FINANCIAL_REPORT_TABS[0].value);
 
   const inDateRange = useCallback(
     (date: string) =>
@@ -536,7 +548,7 @@ export function FinancialReportsView() {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="fr-client">Cliente</Label>
           <Select value={clientId} onValueChange={(value) => value && setClientId(value as string)}>
-            <SelectTrigger id="fr-client">
+            <SelectTrigger id="fr-client" className="w-full">
               <SelectValue placeholder="Cliente" />
             </SelectTrigger>
             <SelectContent>
@@ -555,14 +567,14 @@ export function FinancialReportsView() {
             value={vehicleId}
             onValueChange={(value) => value && setVehicleId(value as string)}
           >
-            <SelectTrigger id="fr-vehicle">
+            <SelectTrigger id="fr-vehicle" className="w-full">
               <SelectValue placeholder="Veículo" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               {VEHICLES.map((vehicle) => (
                 <SelectItem key={vehicle.id} value={vehicle.id}>
-                  {vehicle.plate}
+                  {vehicle.plate} — {getVehicleLabel(vehicle)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -574,7 +586,7 @@ export function FinancialReportsView() {
             value={paymentMethod}
             onValueChange={(value) => value && setPaymentMethod(value as string)}
           >
-            <SelectTrigger id="fr-method">
+            <SelectTrigger id="fr-method" className="w-full">
               <SelectValue placeholder="Forma de pagamento" />
             </SelectTrigger>
             <SelectContent>
@@ -590,7 +602,7 @@ export function FinancialReportsView() {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="fr-status">Status</Label>
           <Select value={status} onValueChange={(value) => value && setStatus(value as string)}>
-            <SelectTrigger id="fr-status">
+            <SelectTrigger id="fr-status" className="w-full">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -605,16 +617,33 @@ export function FinancialReportsView() {
         </div>
       </div>
 
-      <Tabs defaultValue="recebimentos">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="recebimentos">Recebimentos</TabsTrigger>
-          <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
-          <TabsTrigger value="abertas">Contas em aberto</TabsTrigger>
-          <TabsTrigger value="vencidas">Contas vencidas</TabsTrigger>
-          <TabsTrigger value="parciais">Pagamentos parciais</TabsTrigger>
-          <TabsTrigger value="por-forma">Receitas por forma</TabsTrigger>
-          <TabsTrigger value="fluxo-caixa">Fluxo de Caixa</TabsTrigger>
-          <TabsTrigger value="dre">DRE</TabsTrigger>
+      <Tabs
+        value={activeReportTab}
+        onValueChange={(value) => value && setActiveReportTab(value as string)}
+      >
+        <div className="sm:hidden">
+          <Select
+            value={activeReportTab}
+            onValueChange={(value) => value && setActiveReportTab(value as string)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FINANCIAL_REPORT_TABS.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <TabsList className="hidden flex-wrap sm:flex">
+          {FINANCIAL_REPORT_TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="recebimentos" className="pt-4">

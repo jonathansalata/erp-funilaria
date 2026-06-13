@@ -1,8 +1,17 @@
 "use client";
 
+import { useState } from "react";
+
 import { FinancialReportsView } from "@/components/relatorios/financial-reports-view";
 import { ReportTable, type ReportColumn } from "@/components/relatorios/report-table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CLIENTS, getClientById, type Client } from "@/lib/mock-data/clients";
 import {
@@ -33,7 +42,18 @@ const CLIENT_TYPE_LABELS: Record<Client["type"], string> = {
   pessoa_juridica: "Pessoa jurídica",
 };
 
+const REPORT_TABS = [
+  { value: "clientes", label: "Clientes" },
+  { value: "veiculos", label: "Veículos" },
+  { value: "vistorias", label: "Vistorias" },
+  { value: "orcamentos", label: "Orçamentos" },
+  { value: "ordens-servico", label: "Ordens de Serviço" },
+  { value: "financeiro", label: "Financeiro" },
+  { value: "financeiro-detalhado", label: "Relatórios Financeiros" },
+] as const;
+
 export function ReportsView() {
+  const [activeTab, setActiveTab] = useState<string>(REPORT_TABS[0].value);
   const vehicles = useErpDataStore((state) => state.vehicles);
   const inspections = useErpDataStore((state) => state.inspections);
   const quotes = useErpDataStore((state) => state.quotes);
@@ -391,15 +411,30 @@ export function ReportsView() {
         </p>
       </div>
 
-      <Tabs defaultValue="clientes">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="veiculos">Veículos</TabsTrigger>
-          <TabsTrigger value="vistorias">Vistorias</TabsTrigger>
-          <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
-          <TabsTrigger value="ordens-servico">Ordens de Serviço</TabsTrigger>
-          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-          <TabsTrigger value="financeiro-detalhado">Relatórios Financeiros</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => value && setActiveTab(value as string)}>
+        <div className="sm:hidden">
+          <Select
+            value={activeTab}
+            onValueChange={(value) => value && setActiveTab(value as string)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {REPORT_TABS.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <TabsList className="hidden flex-wrap sm:flex">
+          {REPORT_TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="clientes" className="pt-4">

@@ -6,6 +6,14 @@
 
 ## Changelog
 
+- **v1.6** — Fase 2B.7 (refinamento UX/UI mobile global, 2026-06-13): `body` ganha
+  `overflow-x: hidden` (nenhuma página pode gerar scroll lateral); telas de detalhe de Orçamento e
+  OS recebem `min-w-0` nos containers do grid principal para conter o scroll da tabela de itens
+  dentro do card; navegação de Relatórios (principal e Relatórios Financeiros) passa a usar
+  `Select` de largura total em `<sm` (mesmo padrão de Configurações); filtros do relatório
+  financeiro com `SelectTrigger` `w-full` e rótulo de Veículo "Placa — Modelo"; `ReportTable`
+  empilha título/ações em mobile; botões de navegação do calendário da Agenda e de remover anexo
+  elevados para `icon`/`icon-sm`. Detalhes em `DECISIONS.md`, seção "Fase 2B.7".
 - **v1.5** — Fase 2B.6.2 (responsividade mobile do módulo Configurações, 2026-06-13): navegação
   principal de Configurações e navegação interna de Catálogos (antes `TabsList`/`Tabs
 orientation="vertical"`) passam a usar `Select` de largura total em telas `<sm` (640px),
