@@ -3,6 +3,177 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Pendências Conhecidas — Fase 2 (revalidar durante a Fase 3)
+
+Aprovado o planejamento da Fase 3 (`docs/FASE3_PLANO.md`). Antes de iniciar a implementação,
+registram-se dois comportamentos ainda observados em ambiente de teste, **não bloqueantes** para
+o início da Fase 3:
+
+1. **Perfil do Usuário** (`/configuracoes/perfil`) — ao clicar no nome do usuário no canto
+   superior direito, ainda ocorre eventualmente "This page couldn't load", mesmo após os ajustes
+   de hidratação da Fase 2B.8.4 (`!hasHydrated` guard em `ProfileView`).
+2. **Templates de Checklist** (Configurações → Templates de Checklist) — ainda apresenta erro de
+   carregamento em alguns cenários, mesmo após o mesmo ajuste de hidratação aplicado em
+   `ChecklistTemplatesManager` na Fase 2B.8.4.
+
+**Encaminhamento**:
+
+- Ambos permanecem registrados aqui como pendências conhecidas até serem revalidados.
+- Revalidar durante a migração de autenticação real (Fase 3.2) e de persistência Supabase
+  (`profiles`/`checklist_templates`, Fases 3.2-3.3) — se a causa estiver relacionada a
+  hidratação, `zustand/persist` ou estado legado de `localStorage` (`erp-data-store`), a própria
+  migração da Fase 3 pode eliminar o problema naturalmente, já que essas telas passarão a ler de
+  Server Components/sessão real em vez do store persistido.
+- Não bloqueiam o início da Fase 3.1.
+
+## Fase 3.0 — Inventário, Arquitetura e Planejamento Supabase (2026-06-13)
+
+Etapa exclusivamente de planejamento (branch `fase-3-supabase-auth`), sem código, tabelas,
+migrations ou stores alterados. Encerra o ciclo de auditoria pré-migração iniciado após o fim da
+Fase 2 (`fase-2-consolidada-final`/`fase-2-final-estavel`).
+
+- Auditoria completa do modelo mockado real (`src/lib/mock-data/*`, `src/stores/erp-data-store.ts`,
+  2457 linhas) contra o schema v1.1 desenhado em `docs/ARCHITECTURE.md` §6-11 (escrito antes da
+  implementação das Fases 1-2). Identificadas ~15 divergências geradas por funcionalidades
+  adicionadas na Fase 2B sem retroalimentar o schema: novas tabelas (`checklist_templates` +
+  stages/items, `bank_accounts`), novos campos (`vehicles.journey_stage_*`,
+  `service_orders.delivery_mileage`/`warranty_period`, `clients.fantasy_name`/`status`,
+  `quote_status_history`), enums incompletos (`permissions.action` com 4 valores no schema vs. 7
+  no mock; `entity_events.entity_type`/`event_type` documentados com poucos exemplos vs. 11/19
+  valores reais; `vehicle_inspections.status` com 2 vs. 3 valores), e a lacuna mais estrutural:
+  `config_categories` não tem uma coluna `code` imutável equivalente ao `StatusConfig.key` do
+  mock, usado por lógica de negócio em várias telas.
+- Consolidado em **`docs/FASE3_PLANO.md`**: inventário de banco por entidade (mock → Supabase →
+  ajustes), estratégia de migração (o que permanece/é removido/é migrado, e ordem), plano de
+  Auth (login/logout/reset/convite/troca de senha/usuário atual via `@supabase/ssr`), RBAC real
+  (mapeamento dos 5 papéis e 7 ações do mock para `roles`/`permissions`/`role_permissions`),
+  Storage (buckets x `Attachment.tag`/`CompanyInfo.*Url`), Segurança (RLS/policies/auditoria/
+  soft-delete) e diagrama de entidades (Mermaid). O roadmap interno de `ARCHITECTURE.md` §11
+  (Fase 0-13) foi renumerado como sub-etapas **Fase 3.1 a Fase 3.13** para não colidir com a
+  numeração de fases do projeto.
+- 5 decisões estruturais ficaram pendentes para confirmação antes do início da Fase 3.1 (coluna
+  `config_categories.code`, módulo `usuarios` separado no RBAC, modelagem de `technicians`,
+  modelo de pagamentos granulares em contas a receber/pagar, destino de eventos de
+  login/reset/permissão). Nenhuma delas bloqueia a Fase 3.1 (fundação/extensões).
+- `docs/ARCHITECTURE.md` recebeu entrada de changelog "v1.11" apontando para `docs/FASE3_PLANO.md`;
+  a atualização das seções §7 com os ajustes detalhados será feita incrementalmente, por domínio,
+  durante a execução de cada sub-etapa (evita reescrever o documento de uma vez e mantém a
+  arquitetura sincronizada com o código real).
+
+## Fase 3.1 — Migrations, Schema SQL, Seeds e RLS (2026-06-13)
+
+Aprovado o schema consolidado em `docs/FASE3_SCHEMA.sql` ("FASE 3.1 APROVADA"), com 3 ajustes
+incorporados ao plano antes da geração das migrations. Entregue: 10 migrations
+(`supabase/migrations/0001` a `0010`), `supabase/seed.sql` e validação de build. **Sem migração
+das stores Zustand para Supabase** — fica para a Fase 3.2, conforme instrução explícita.
+
+- **Ajuste 1 — `organization_id` obrigatório**: toda tabela de nível superior (entidade de
+  negócio) tem `organization_id uuid NOT NULL REFERENCES organizations(id)`. Tabelas-filhas
+  (itens de orçamento/OS, histórico de status, pagamentos, etc.) não duplicam a coluna —
+  herdam o tenant via FK ao registro pai + RLS por `EXISTS`.
+- **Ajuste 2 — Soft delete (`deleted_at`/`deleted_by`)**: aplicado a todas as entidades
+  principais (organizations, roles, profiles, config_categories, services, parts,
+  checklist_templates, bank_accounts, clients, vehicles, appointments, vehicle_inspections,
+  quotes, service_orders, suppliers, accounts_receivable, accounts_payable, file_metadata).
+  `deleted_by uuid REFERENCES profiles(id)`; em `0002_rbac.sql`, como `profiles` é criada depois
+  de `organizations`/`roles`, as FKs de `deleted_by` dessas duas tabelas são adicionadas via
+  `ALTER TABLE` ao final do arquivo. Tabelas de auditoria (`entity_events`, `audit_logs`,
+  `financial_audit_logs`) e tabelas-filhas puramente transacionais
+  (`accounts_receivable_payments`/`accounts_payable_payments`, que já têm
+  `reversed_at`/`reversed_by`) não recebem soft delete — não fazem sentido para o design.
+- **Ajuste 3 — `fn_next_document_number` transacional e concorrente-safe**
+  (`0003_taxonomias.sql`): combina `SELECT ... FOR UPDATE` (lock de linha existente durante a
+  transação) com `INSERT ... ON CONFLICT (organization_id, entity_type, year) DO UPDATE SET
+last_number = document_sequences.last_number + 1` (cobre a corrida em que duas transações não
+  encontram linha existente e tentam inserir simultaneamente).
+- **RLS consolidado** (`0010_storage_policies.sql`): política padrão por tabela (SELECT exige
+  `deleted_at IS NULL` + `fn_has_permission(module,'view')`; INSERT exige `'create'`; UPDATE
+  exige `'edit' OR 'delete'` — esta última condição é o que permite que o soft delete, que é
+  implementado como `UPDATE deleted_at/deleted_by`, seja autorizado pela permissão de exclusão;
+  DELETE físico bloqueado via `USING (false)`). Tabelas-filhas usam `EXISTS` sobre o registro
+  pai. `entity_events`/`audit_logs`/`financial_audit_logs`/`file_metadata` com políticas próprias
+  (`fn_module_for_entity_type`, `fn_module_for_file_entity_type`, `fn_log_entity_event`).
+- **`file_metadata`** (nova tabela, `0010_storage_policies.sql`): metadados de arquivos do
+  Supabase Storage (7 buckets, 7 `entity_type`, `attachment_type` incl. `photo_general`), com
+  soft delete.
+- **`supabase/seed.sql`**: cria apenas o usuário administrador de desenvolvimento
+  (`admin@oficinademo.com`/`admin123456`, vinculado ao papel "Administrador" da organização
+  "Oficina Demo") — organização/papéis/permissões/taxonomias já são semeados pelas próprias
+  migrations 0002/0003.
+- **Pendências herdadas da Fase 2** (Perfil do Usuário, Templates de Checklist — ver seção
+  "Pendências Conhecidas — Fase 2" no topo deste arquivo): permanecem registradas e **não
+  bloqueiam** a Fase 3.1. Serão revalidadas durante a Fase 3.2/3.3, quando essas telas passarem a
+  ler de `profiles`/`checklist_templates` via Supabase em vez do store `zustand/persist`.
+
+## Fase 3.2 — Provisionamento Supabase (2026-06-13)
+
+Provisionamento e validação do ambiente Supabase do projeto já vinculado (`erp-funilaria`,
+ref `lguzgwszvlhggsxgmlya`), usando as migrations da Fase 3.1/3.1.2. Sem alteração de stores,
+sem início de Auth (login/logout/reset) e sem migração de dados.
+
+- **`supabase db push --include-all`**: aplicadas as 10 migrations (`0001`-`0010`) no banco
+  remoto. Durante a aplicação de `0010_storage_policies.sql` foi encontrado um bug estrutural
+  não identificado na auditoria 3.1.1: a tabela `vehicle_shop_visits` não possui
+  `deleted_at`/`deleted_by` (por design, conforme `docs/FASE3_SCHEMA.sql` — visitas ao pátio não
+  têm soft delete), mas estava incluída no `DO $$ ... $$` de RLS padrão, que assume
+  `deleted_at IS NULL` para todas as 15 tabelas da lista, causando
+  `ERROR: column "deleted_at" does not exist`. **Fix**: `vehicle_shop_visits` removida da lista
+  do `DO $$ ... $$` e recebeu policies dedicadas (`select/insert/update/delete_vehicle_shop_visits`),
+  equivalentes ao template padrão porém sem a condição `deleted_at IS NULL`.
+- **`supabase db push --include-seed`**: aplicado `supabase/seed.sql` (usuário
+  `admin@oficinademo.com` / organização "Oficina Demo" / role "Administrador"). Encontrado erro
+  `function gen_salt(unknown) does not exist`: no Supabase cloud, `pgcrypto` é instalado no
+  schema `extensions`, fora do `search_path` padrão da sessão de seed. **Fix**: chamadas
+  qualificadas como `extensions.crypt(...)`/`extensions.gen_salt(...)`.
+- **`supabase gen types typescript --linked`**: gerado `src/types/database.types.ts` (2919
+  linhas) a partir do schema remoto já provisionado, substituindo o placeholder da Fase 0.
+  `npm run build` (23 rotas) e `npm run lint` validados com a nova tipagem — sem erros.
+- **`.env.example`** criado (template genérico, mesmas 3 variáveis de `.env.local.example`) e
+  `.gitignore` ajustado com `!.env*.example` para versionar os templates (antes bloqueados pelo
+  padrão `.env*`).
+- **Validação do usuário seed** via REST (service_role): `profiles` (admin@oficinademo.com,
+  status `active`, `organization_id`/`role_id` corretos) → `organizations` ("Oficina Demo") →
+  `roles` (4 roles da organização, incl. "Administrador") → `role_permissions` (43/43
+  permissions com `allowed=true` para o role Administrador). `config_categories` (78 linhas) e
+  `permissions` (43 linhas) confirmam seeds de taxonomia/RBAC da Fase 3.1.
+- **Observação para a Fase de Auth**: `GET /auth/v1/admin/users` retornou
+  `500 Database error finding users` para o projeto. A causa não foi investigada nem corrigida
+  nesta fase (fora do escopo — "NÃO iniciar Auth"); deve ser tratada antes/durante a
+  implementação de login (Fase de Auth), pois pode impedir o fluxo de autenticação do usuário
+  seed.
+
+## Fase 3.1.2 — Correções da Auditoria das Migrations (2026-06-13)
+
+Correção dos 2 findings da auditoria "Fase 3.1.1" (ver seção anterior), sem iniciar Supabase,
+Auth, migração de dados ou alteração de stores.
+
+- **Bloco 33 (Finding 1, crítico) — `fn_financial_audit_trigger`** (`0009_audit.sql`): a função
+  referenciava `NEW.organization_id`, coluna que não existe em
+  `accounts_receivable_payments`/`accounts_payable_payments`, o que quebraria (erro `record "new"
+has no field "organization_id"`) todo INSERT/UPDATE/DELETE de pagamentos — recebimentos,
+  pagamentos e estornos parciais/totais. Reescrita a resolução de `v_org_id` com `IF/ELSIF`
+  ramificado por `TG_TABLE_NAME`: para `accounts_receivable`/`accounts_payable`, usa
+  `coalesce(NEW.organization_id, OLD.organization_id)`; para
+  `accounts_receivable_payments`/`accounts_payable_payments`, faz `SELECT organization_id` na
+  entidade pai (`accounts_receivable`/`accounts_payable`) via
+  `coalesce(NEW.accounts_receivable_id, OLD.accounts_receivable_id)` (idem para `_payable_id`).
+  A correção depende da compilação tardia de expressões do PL/pgSQL: o branch que referencia
+  `organization_id` em NEW/OLD nunca é executado (nem compilado) para as tabelas de pagamento,
+  eliminando o erro de campo inexistente. Os 4 triggers (`trg_financial_audit_ar`,
+  `trg_financial_audit_ar_payments`, `trg_financial_audit_ap`, `trg_financial_audit_ap_payments`)
+  e a cadeia de hash (`previous_hash`/`record_hash`) permanecem inalterados — apenas a resolução
+  de `v_org_id` foi corrigida.
+- **Bloco 34 (Finding 2, médio) — RLS em `document_sequences`** (`0010_storage_policies.sql`):
+  adicionado `ALTER TABLE document_sequences ENABLE ROW LEVEL SECURITY` + policy
+  `select_document_sequences` (`organization_id = fn_current_org_id()`), impedindo leitura
+  cross-tenant dos contadores de numeração. Sem policies de INSERT/UPDATE para `authenticated`:
+  a tabela só é alterada via `fn_next_document_number` (SECURITY DEFINER), que ignora RLS —
+  compatibilidade preservada.
+- **Bloco 35 — Auditoria final**: ambos os findings da Fase 3.1.1 estão corrigidos. 24 funções
+  (1 alterada: `fn_financial_audit_trigger`) e 94 policies (93 + 1 nova:
+  `select_document_sequences`) — `document_sequences` passa a ser a 37ª/37 tabela com RLS
+  habilitado. Nenhuma store, Auth ou dado foi alterado/migrado.
+
 ## Fase 2B.8 — Refinamentos Operacionais e UX Financeiro (2026-06-13)
 
 Fase de ajustes pontuais em Financeiro e Relatórios, sem alteração de identidade visual, sem
