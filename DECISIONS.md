@@ -26,6 +26,11 @@ o início da Fase 3:
   Server Components/sessão real em vez do store persistido.
 - Não bloqueiam o início da Fase 3.1.
 
+**Atualização (Fase 3.3, 2026-06-13)**: ambos corrigidos. "Perfil do Usuário" passou a usar dados
+reais (`useAuth()`/`usePermissions()`), eliminando a dependência de `hasHydrated`. "Templates de
+Checklist" corrigido na causa raiz: `onRehydrateStorage` em `erp-data-store.ts` agora garante
+`hasHydrated = true` mesmo em erro de rehydration. Ver "Fase 3.3" abaixo.
+
 ## Fase 3.0 — Inventário, Arquitetura e Planejamento Supabase (2026-06-13)
 
 Etapa exclusivamente de planejamento (branch `fase-3-supabase-auth`), sem código, tabelas,
@@ -141,6 +146,87 @@ sem início de Auth (login/logout/reset) e sem migração de dados.
   nesta fase (fora do escopo — "NÃO iniciar Auth"); deve ser tratada antes/durante a
   implementação de login (Fase de Auth), pois pode impedir o fluxo de autenticação do usuário
   seed.
+
+## Fase 3.3 — Autenticação Real Supabase (2026-06-13)
+
+Substituído o acesso aberto pelo fluxo real de autenticação do Supabase (login, logout,
+recuperação/refresh de sessão, proteção de rotas). Módulos funcionais (Clientes, Veículos,
+Vistorias, Agenda, Orçamentos, OS, Financeiro) e os stores Zustand correspondentes **não** foram
+alterados — continuam 100% mock, conforme escopo da fase.
+
+- **Bug de login corrigido (pré-requisito)**: `POST /auth/v1/token?grant_type=password` para
+  `admin@oficinademo.com` retornava `500 Database error querying schema` (item registrado como
+  "Observação para a Fase de Auth" na Fase 3.2). Causa: o `INSERT INTO auth.users` do
+  `supabase/seed.sql` deixava `confirmation_token`, `recovery_token`, `email_change` e
+  `email_change_token_new` como `NULL` (default da coluna); o GoTrue faz _scan_ dessas colunas
+  como `string` não-nula tanto em `/token` quanto em `/admin/users`, falhando com `NULL`. **Fix**:
+  `seed.sql` agora insere `''` explicitamente nessas 4 colunas; aplicado também via `UPDATE` no
+  usuário seed já existente no banco remoto. Login validado com sucesso após o fix.
+- **`supabase/migrations/0011_auth_helpers.sql`** (nova): `fn_get_my_permissions()` —
+  `SECURITY DEFINER`, resolve `module/action/allowed` a partir de `auth.uid() -> profiles.role_id
+-> role_permissions/permissions`. Necessária porque `select_role_permissions`
+  (`0002_rbac.sql`) exige `roles.organization_id = fn_current_org_id()`, e `fn_current_org_id()`
+  retorna `NULL` sem o Custom Access Token Hook (não configurado neste projeto) — sem essa RPC, a
+  leitura de `role_permissions` via RLS retornaria sempre vazio para qualquer usuário.
+- **`supabase/migrations/0012_auth_profile_helpers.sql`** (nova):
+  - `fn_get_my_role_name()` — `SECURITY DEFINER`, retorna o nome do papel (`roles.name`) do
+    usuário autenticado via `auth.uid() -> profiles.role_id`. Necessária pelo mesmo motivo
+    acima: `select_roles` também exige `organization_id = fn_current_org_id()` (`NULL`).
+  - `fn_update_my_profile(p_phone, p_job_title)` — `SECURITY DEFINER`, atualiza
+    `phone`/`job_title` do próprio perfil (`WHERE id = auth.uid()`). Necessária porque
+    `update_own_profile` (`0002_rbac.sql`) tem `WITH CHECK organization_id = fn_current_org_id()`
+    — como essa expressão é `NULL`, **qualquer** `UPDATE` direto em `profiles` seria rejeitado
+    pelo RLS, mesmo no próprio registro (a cláusula `USING id = auth.uid()` passa, mas o
+    `WITH CHECK` nunca).
+  - Ambas as migrations foram aplicadas via `supabase db push --include-all --yes` e
+    `src/types/database.types.ts` foi regenerado (`supabase gen types typescript --linked`).
+  - **Nota**: a resolução definitiva (configurar o Custom Access Token Hook para popular
+    `app_metadata.organization_id`/`role_id`, habilitando `fn_current_org_id()`/
+    `fn_current_role_id()` para todas as policies que dependem deles) fica registrada como
+    pendência para uma fase futura de RBAC/multi-tenant completo — fora do escopo desta fase
+    (login/logout com um único usuário/organização seed).
+- **`src/lib/auth/types.ts`** (novo): tipos `Profile` (alias de
+  `Database["public"]["Tables"]["profiles"]["Row"]`), `PermissionModule`
+  (`ModuleKey | "usuarios"`) e `PermissionEntry`.
+- **`src/components/providers/auth-provider.tsx`** (novo): `AuthProvider` (client) — mantém
+  `user` (Supabase Auth), `profile`, `roleName`, `permissions` (via `fn_get_my_permissions`) e
+  `isLoading` em contexto; usa `supabase.auth.getSession()` + `onAuthStateChange` para
+  recuperação/refresh automático de sessão; expõe `signOut()` (chama `auth.signOut()` e
+  redireciona para `/login`) e `refreshProfile()`.
+- **`src/hooks/use-auth.ts`** (novo): `useAuth()` → `{ user, profile, roleName, isLoading,
+signOut, refreshProfile }`.
+- **`src/hooks/use-permissions.ts`** (novo): `usePermissions()` → `{ permissions, can(module,
+action), isLoading }`.
+- **`src/app/(auth)/layout.tsx`** + **`src/app/(auth)/login/page.tsx`** +
+  **`src/components/auth/login-form.tsx`** (novos): tela de login responsiva, mesma identidade
+  visual do ERP (logo "EF", `font-heading`/Josefin Sans, componentes shadcn/ui `Card`/`Input`/
+  `Button`/`Label`), usa `signInWithPassword` e redireciona para `?redirectTo=` (ou `/`) após
+  sucesso.
+- **`src/lib/supabase/middleware.ts`**: após `supabase.auth.getUser()`, adicionado redirect para
+  `/login?redirectTo=<rota>` quando não há usuário autenticado e a rota não é `/login`; e
+  redirect para `/` quando há usuário autenticado acessando `/login`. `/login` é a única rota
+  pública.
+- **`src/proxy.ts`**: comentário/TODO da Fase 1 atualizado para refletir a proteção de rotas
+  implementada em `updateSession`.
+- **`src/app/(dashboard)/layout.tsx`**: envolvido com `<AuthProvider>`.
+- **`src/components/layout/header.tsx`**: substituído `resolveCurrentUser`/`useErpDataStore` por
+  `useAuth()` (nome/avatar do usuário real); item "Sair" do menu agora chama `signOut()`.
+- **Bug "Perfil do Usuário" corrigido**: `src/components/configuracoes/profile-view.tsx`
+  reescrito para usar `useAuth()`/`usePermissions()` (dados reais de `profiles` +
+  `fn_get_my_permissions`) em vez de `useErpDataStore`/`resolveCurrentUser` — elimina a
+  dependência do `hasHydrated` que causava "This page couldn't load". Telefone/cargo agora são
+  salvos via `fn_update_my_profile`.
+- **Bug "Templates de Checklist" corrigido**: `src/stores/erp-data-store.ts` —
+  `onRehydrateStorage` agora chama `setHasHydrated(true)` mesmo quando `state` é `undefined`
+  (erro de rehydration), via `useErpDataStore.getState().setHasHydrated(true)`. Antes, um erro de
+  rehydration deixava `hasHydrated` permanentemente `false`, e `ChecklistTemplatesManager` (que
+  faz `if (!hasHydrated) return null`) ficava em branco para sempre.
+- **Validação**: `npm run build` (24 rotas, incl. `/login`), `npm run lint` e `tsc --noEmit` sem
+  erros. Login testado via REST com `admin@oficinademo.com` / `admin123456` (token emitido com
+  sucesso) e `fn_get_my_permissions`/`fn_get_my_role_name` testados via RPC com o token retornado.
+- **Escopo não alterado**: Clientes, Veículos, Vistorias, Agenda, Orçamentos, OS e Financeiro
+  continuam 100% mock (Zustand `erp-data-store` + `localStorage`); nenhuma migração de stores
+  para Supabase foi iniciada.
 
 ## Fase 3.1.2 — Correções da Auditoria das Migrations (2026-06-13)
 

@@ -33,7 +33,22 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANTE: não remova o supabase.auth.getUser().
   // Ele renova o token de sessão, mantendo o usuário autenticado.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname, search } = request.nextUrl;
+  const isAuthRoute = pathname.startsWith("/login");
+
+  if (!user && !isAuthRoute) {
+    const redirectUrl = new URL("/login", request.url);
+    redirectUrl.searchParams.set("redirectTo", `${pathname}${search}`);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && isAuthRoute) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
 
   return supabaseResponse;
 }

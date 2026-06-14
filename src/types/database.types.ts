@@ -2737,6 +2737,15 @@ export type Database = {
     Functions: {
       fn_current_org_id: { Args: never; Returns: string };
       fn_current_role_id: { Args: never; Returns: string };
+      fn_get_my_permissions: {
+        Args: never;
+        Returns: {
+          action: string;
+          allowed: boolean;
+          module: string;
+        }[];
+      };
+      fn_get_my_role_name: { Args: never; Returns: string };
       fn_has_permission: {
         Args: { p_action: string; p_module: string };
         Returns: boolean;
@@ -2772,6 +2781,32 @@ export type Database = {
       fn_set_vehicle_journey_stage: {
         Args: { p_stage_id: string; p_vehicle_id: string };
         Returns: undefined;
+      };
+      fn_update_my_profile: {
+        Args: { p_job_title: string; p_phone: string };
+        Returns: {
+          avatar_url: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          email: string;
+          full_name: string;
+          id: string;
+          job_title: string | null;
+          must_change_password: boolean;
+          organization_id: string;
+          phone: string | null;
+          role_id: string | null;
+          status: string;
+          theme_preference: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "profiles";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

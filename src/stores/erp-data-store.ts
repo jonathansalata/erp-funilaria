@@ -2450,7 +2450,15 @@ export const useErpDataStore = create<ErpDataState>()(
         return persistedState as ErpDataState;
       },
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        // Mesmo em caso de erro de rehydration (`state` undefined), o flag
+        // precisa virar `true` — caso contrário, componentes que aguardam
+        // `hasHydrated` (ex.: ProfileView, ChecklistTemplatesManager) ficam
+        // em branco para sempre.
+        if (state) {
+          state.setHasHydrated(true);
+        } else {
+          useErpDataStore.getState().setHasHydrated(true);
+        }
       },
     },
   ),

@@ -28,8 +28,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { resolveCurrentUser } from "@/lib/mock-data/users";
-import { useErpDataStore } from "@/stores/erp-data-store";
+import { useAuth } from "@/hooks/use-auth";
 
 function initials(name: string): string {
   return name
@@ -42,9 +41,7 @@ function initials(name: string): string {
 
 export function Header() {
   const pathname = usePathname();
-  const currentUserId = useErpDataStore((state) => state.currentUserId);
-  const users = useErpDataStore((state) => state.users);
-  const currentUser = resolveCurrentUser(users, currentUserId);
+  const { profile, signOut } = useAuth();
 
   return (
     <header className="bg-background border-border sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:px-6">
@@ -113,9 +110,9 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>
             <Avatar size="sm">
-              <AvatarFallback>{currentUser ? initials(currentUser.name) : "?"}</AvatarFallback>
+              <AvatarFallback>{profile ? initials(profile.full_name) : "?"}</AvatarFallback>
             </Avatar>
-            <span className="hidden text-sm font-medium sm:inline">{currentUser?.name}</span>
+            <span className="hidden text-sm font-medium sm:inline">{profile?.full_name}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
@@ -127,7 +124,9 @@ export function Header() {
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">Sair</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => void signOut()}>
+              Sair
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
