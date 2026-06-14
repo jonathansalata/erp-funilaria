@@ -6,6 +6,15 @@
 
 ## Changelog
 
+- **v1.19** — Bloco 38 (auditoria por evidência: menu do usuário e Templates de Checklist,
+  2026-06-14): reprodução em navegador real (CDP) confirmou dois bugs independentes não
+  resolvidos pelo Bloco 37. (1) `src/components/layout/header.tsx` — `DropdownMenuLabel` fora de
+  `DropdownMenuGroup` derrubava o popup do menu do usuário (Base UI 1.5.0 exige `Menu.GroupLabel`
+  dentro de `Menu.Group`); corrigido envolvendo o label e os itens em `DropdownMenuGroup`. (2)
+  `src/components/configuracoes/checklist-templates-manager.tsx` — seletor Zustand com `.filter()`
+  inline causava loop infinito de re-render (`Maximum update depth exceeded`); corrigido
+  selecionando `state.checklistTemplates` (referência estável) e filtrando via `useMemo`. Ver
+  [DECISIONS.md#bloco-38--auditoria-por-evidência-menu-do-usuário-e-templates-de-checklist-2026-06-14](../DECISIONS.md#bloco-38--auditoria-por-evidência-menu-do-usuário-e-templates-de-checklist-2026-06-14).
 - **v1.18** — Bloco 37 (resiliência do `AuthProvider`, logout, "Alterar Senha" e diagnóstico do
   proxy de auth, 2026-06-14): causa raiz comum de 4 problemas em produção (sem logout acessível,
   avatar do Header não abria "Meu Perfil", `/configuracoes/perfil` e Checklist Templates caindo

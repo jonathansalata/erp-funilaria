@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,8 +40,10 @@ function createEmptyStage(): ChecklistTemplateStage {
 
 export function ChecklistTemplatesManager({ kind }: ChecklistTemplatesManagerProps) {
   const hasHydrated = useErpDataStore((state) => state.hasHydrated);
-  const templates = useErpDataStore((state) =>
-    state.checklistTemplates.filter((template) => template.kind === kind),
+  const checklistTemplates = useErpDataStore((state) => state.checklistTemplates);
+  const templates = useMemo(
+    () => checklistTemplates.filter((template) => template.kind === kind),
+    [checklistTemplates, kind],
   );
   const createChecklistTemplate = useErpDataStore((state) => state.createChecklistTemplate);
   const updateChecklistTemplate = useErpDataStore((state) => state.updateChecklistTemplate);

@@ -3,6 +3,46 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Bloco 38 — Auditoria por Evidência: Menu do Usuário e Templates de Checklist (2026-06-14)
+
+**Contexto**: o relatório do Bloco 37 não resolveu os problemas observados em produção. Validação
+manual confirmou que o menu do usuário não abria no Header (sem "Meu Perfil", "Alterar Senha" ou
+"Sair" visíveis) e que Configurações → Templates de Checklist continuava caindo no Error Boundary.
+
+**Método**: reprodução em navegador real (Chrome headless via CDP), login efetivo, captura de
+stack traces de exceção em tempo de execução — sem hipóteses, apenas evidência observada.
+
+**Bug A — Menu do usuário não abre (`src/components/layout/header.tsx`)**
+
+- Causa raiz: `<DropdownMenuLabel>Minha conta</DropdownMenuLabel>` era renderizado diretamente
+  dentro de `<DropdownMenuContent>`, fora de um `<DropdownMenuGroup>`. No Base UI 1.5.0,
+  `Menu.GroupLabel` lança `"Base UI: MenuGroupContext is missing. Menu group parts must be used
+within <Menu.Group> or <Menu.RadioGroup>."` quando usado fora de `Menu.Group`/`Menu.RadioGroup`,
+  o que derrubava o popup do menu (capturado pelo Error Boundary do segmento, de forma silenciosa).
+- Correção: envolvido o `DropdownMenuLabel` e os itens do menu em `<DropdownMenuGroup>`
+  (componente já existente em `src/components/ui/dropdown-menu.tsx`, até então não utilizado).
+
+**Bug B — Templates de Checklist caem no Error Boundary
+(`src/components/configuracoes/checklist-templates-manager.tsx`)**
+
+- Causa raiz: o seletor `useErpDataStore((state) => state.checklistTemplates.filter(...))` criava
+  um novo array a cada chamada. No Zustand v5 (`useSyncExternalStore`), isso disparava
+  `"The result of getSnapshot should be cached to avoid an infinite loop"` /
+  `"Maximum update depth exceeded"`, derrubando o componente para `error.tsx`.
+- Correção: o seletor agora retorna a referência estável `state.checklistTemplates`; o filtro por
+  `kind` passou a ser calculado com `useMemo(() => checklistTemplates.filter(...), [checklistTemplates, kind])`.
+
+**Validação (Chrome headless via CDP, fluxo completo login → dashboard → Header → Configurações)**:
+
+- Menu do usuário abre e exibe: "Minha conta / Meu Perfil / Alterar Senha / Configurações / Sair".
+- Aba "Templates de Checklist" renderiza os templates cadastrados, sem "Algo deu errado" e sem
+  `data-nextjs-error-boundary`.
+- Console sem erros, sem requisições com status ≥ 400.
+- `npm run typecheck`, `npm run lint` e `npm run build` executados com sucesso após as correções.
+
+**Escopo**: apenas os dois bugs reproduzíveis acima foram corrigidos; nenhuma nova funcionalidade
+ou fase foi iniciada.
+
 ## Bloco 37 — Resiliência do AuthProvider, Logout, Alterar Senha e Diagnóstico do Proxy (2026-06-14)
 
 **Problemas reportados em produção (Vercel)**:

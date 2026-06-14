@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -115,21 +116,23 @@ export function Header() {
             <span className="hidden text-sm font-medium sm:inline">{profile?.full_name}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/configuracoes/perfil" />}>
-              Meu Perfil
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/redefinir-senha" />}>
-              Alterar Senha
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/configuracoes" />}>
-              Configurações
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => void signOut()}>
-              Sair
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem render={<Link href="/configuracoes/perfil" />}>
+                Meu Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/redefinir-senha" />}>
+                Alterar Senha
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/configuracoes" />}>
+                Configurações
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => void signOut()}>
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
