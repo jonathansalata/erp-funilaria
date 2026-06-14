@@ -92,7 +92,11 @@
       "Bash(curl -s http://localhost:3000/configuracoes/perfil -o /tmp/perfil.html -w \"%{http_code}\\\\n\")",
       "Bash(curl -s http://localhost:3000/configuracoes/perfil -o /tmp/perfil2.html -w \"%{http_code}\\\\n\")",
       "Bash(rm \"c:/Users/Jonathan/Desktop/ERP-Funilaria-11-06-2026/src/lib/version.ts\")",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(grep \"Row:\\\\|^\\\\s*[0-9]*:\\\\s*profiles:\\\\|^\\\\s*[0-9]*:\\\\s*roles:\\\\|: {$\")",
+      "Bash(curl -s -X POST \"https://lguzgwszvlhggsxgmlya.supabase.co/auth/v1/token?grant_type=password\" -H \"apikey: sb_publishable_nuDgfebRsZDabH0CcI58ZQ_e9k_8VT9\" -H \"Content-Type: application/json\" -d '{\"email\":\"admin@oficinademo.com\",\"password\":\"admin123456\"}')",
+      "Bash(curl -s -X POST \"https://lguzgwszvlhggsxgmlya.supabase.co/rest/v1/rpc/fn_get_my_permissions\" -H \"apikey: sb_publishable_nuDgfebRsZDabH0CcI58ZQ_e9k_8VT9\" -H \"Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6Ijg4NGNlNjI1LWQ5MGYtNDc5ZS1hNWE2LWNhNjdlZGNiYTJmYSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2xndXpnd3N6dmxoZ2dzeGdtbHlhLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwYTEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzgxNDAyMTQwLCJpYXQiOjE3ODEzOTg1NDAsImVtYWlsIjoiYWRtaW5Ab2ZpY2luYWRlbW8uY29tIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6e30sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3ODEzOTg1NDB9XSwic2Vzc2lvbl9pZCI6IjYxNTMzNjdhLWYwNTEtNDQ3Yy1iMWZkLWEzNzY5YzI2OThhZiIsImlzX2Fub255bW91cyI6ZmFsc2V9.4xR10PoGod-vN2Q_fn7KEm80mpJz7-wM2nT9681vlYSzB8xuSzB9_fWMIPEizjVBAmsO6U8q-xulVZjj3jNCDg\" -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(rm -f err.log)"
     ],
     "additionalDirectories": [
       "\\tmp",

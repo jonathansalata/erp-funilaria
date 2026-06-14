@@ -6,6 +6,24 @@
 
 ## Changelog
 
+- **v1.15** — Fase 3.3 (autenticação real Supabase, 2026-06-13): substituído o acesso aberto
+  pelo fluxo real de auth (login/logout/refresh/proteção de rotas), mantendo todos os módulos
+  funcionais (Clientes, Veículos, Vistorias, Agenda, Orçamentos, OS, Financeiro) e os stores
+  Zustand em mock. Novos: `AuthProvider` (`src/components/providers/auth-provider.tsx`),
+  `useAuth()`/`usePermissions()` (`src/hooks/`), tela `/login`
+  (`src/app/(auth)/login`, `src/components/auth/login-form.tsx`), proteção de rotas em
+  `src/lib/supabase/middleware.ts` (redirect para `/login` se não autenticado; `/login` é a
+  única rota pública). Duas migrations novas (`0011_auth_helpers.sql`,
+  `0012_auth_profile_helpers.sql`) adicionam RPCs `SECURITY DEFINER`
+  (`fn_get_my_permissions`, `fn_get_my_role_name`, `fn_update_my_profile`) que resolvem RBAC e
+  atualização do próprio perfil via `auth.uid()`, contornando a dependência de
+  `fn_current_org_id()`/`fn_current_role_id()` (claims de `app_metadata` ainda não populadas —
+  Custom Access Token Hook não configurado, pendência para fase futura de RBAC completo). Corrigido
+  bug de login (`500 Database error querying schema`) causado por colunas `NULL` em
+  `auth.users` no seed. Corrigidos os dois bugs pendentes "Perfil do Usuário" e "Templates de
+  Checklist" (`ProfileView` reescrito com dados reais; `onRehydrateStorage` em
+  `erp-data-store.ts` corrigido). `npm run build`/`lint`/`tsc --noEmit` validados (24 rotas).
+  Detalhes em `DECISIONS.md`, seção "Fase 3.3".
 - **v1.14** — Fase 3.2 (provisionamento Supabase, 2026-06-13): as 10 migrations e o seed foram
   aplicados no projeto Supabase já vinculado (`erp-funilaria`); `src/types/database.types.ts`
   gerado via `supabase gen types typescript --linked` (2919 linhas), substituindo o placeholder
