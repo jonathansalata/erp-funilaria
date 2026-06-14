@@ -6,6 +6,49 @@
 
 ## Changelog
 
+- **v1.14** — Fase 3.2 (provisionamento Supabase, 2026-06-13): as 10 migrations e o seed foram
+  aplicados no projeto Supabase já vinculado (`erp-funilaria`); `src/types/database.types.ts`
+  gerado via `supabase gen types typescript --linked` (2919 linhas), substituindo o placeholder
+  da Fase 0; `npm run build`/`npm run lint` validados com a nova tipagem. Corrigido bug
+  estrutural descoberto na aplicação de `0010_storage_policies.sql`:
+  `vehicle_shop_visits` (sem `deleted_at`/`deleted_by` por design) estava incluída no `DO $$ ...
+  $$
+  ` de RLS padrão que assume soft delete; recebeu policies dedicadas sem essa condição.
+  Corrigido `supabase/seed.sql` para usar `extensions.crypt`/`extensions.gen_salt`
+  (pgcrypto fica no schema `extensions` no Supabase cloud). Criado `.env.example` e ajustado
+  `.gitignore` (`!.env*.example`) para versionar os templates de variáveis de ambiente. Sem
+  alteração de stores Zustand e sem início de Auth/login. Detalhes em `DECISIONS.md`, seção
+  "Fase 3.2".
+  $$
+- **v1.13** — Fase 3.1.2 (correções da auditoria das migrations, 2026-06-13): corrigidos os 2
+  findings da auditoria "Fase 3.1.1". (1) `fn_financial_audit_trigger`
+  (`0009_audit.sql`) referenciava `NEW.organization_id`, coluna inexistente em
+  `accounts_receivable_payments`/`accounts_payable_payments`, o que quebraria o hash-chain de
+  auditoria financeira em recebimentos/pagamentos/estornos; a resolução de `organization_id`
+  passou a ser ramificada por `TG_TABLE_NAME`, buscando a entidade pai
+  (`accounts_receivable`/`accounts_payable`) para as tabelas de pagamento. (2) `document_sequences`
+  era a única das 37 tabelas sem RLS; adicionada `ENABLE ROW LEVEL SECURITY` + policy de SELECT
+  por `fn_current_org_id()` (`0010_storage_policies.sql`), sem afetar
+  `fn_next_document_number` (SECURITY DEFINER). Nenhuma store, Auth, Supabase ou dado foi
+  alterado/iniciado. Detalhes em `DECISIONS.md`, seção "Fase 3.1.2".
+- **v1.12** — Fase 3.1 (migrations, schema SQL, seeds e RLS, 2026-06-13): implementadas as 10
+  migrations (`supabase/migrations/0001` a `0010`) e `supabase/seed.sql` a partir do schema
+  consolidado em `docs/FASE3_SCHEMA.sql`, com 3 ajustes adicionais aprovados:
+  `organization_id NOT NULL` em toda entidade de negócio, soft delete (`deleted_at`/`deleted_by`)
+  nas entidades principais (incl. nova tabela `file_metadata`), e `fn_next_document_number`
+  transacional/concorrente-safe (`SELECT ... FOR UPDATE` + `INSERT ... ON CONFLICT ... DO
+UPDATE`). RLS consolidado em `0010_storage_policies.sql`, incluindo a regra de que UPDATE
+  (soft delete) é autorizado por `'edit' OR 'delete'`. Stores Zustand permanecem inalteradas —
+  migração para Supabase fica para a Fase 3.2. Detalhes em `DECISIONS.md`, seção "Fase 3.1".
+- **v1.11** — Fase 3.0 (inventário, arquitetura e planejamento Supabase, 2026-06-13): auditoria
+  completa do modelo mockado real (Fases 1-2B) contra o schema v1.1 aqui descrito, identificando
+  ~15 divergências (novas tabelas como `checklist_templates`/`bank_accounts`, campos novos em
+  `vehicles`/`service_orders`/`accounts_receivable`/`accounts_payable`, ajustes em `permissions`
+  (7 ações), `entity_events`/`audit_logs` (enums expandidos), `config_categories` (necessidade de
+  coluna `code` imutável), entre outros). Plano técnico completo (inventário por entidade,
+  estratégia de migração, plano de Auth/RBAC/Storage/Segurança, diagrama ER e ordem de execução
+  Fase 3.1-3.13) consolidado em `docs/FASE3_PLANO.md`. Esta etapa é apenas planejamento — nenhuma
+  migration, tabela ou store foi alterada. Detalhes em `DECISIONS.md`, seção "Fase 3.0".
 - **v1.10** — Fase 2B.8.5 (versionamento automático e metadados de build, 2026-06-13): nova fonte
   única `src/lib/app-metadata.ts`, que lê `version` de `package.json` e expõe `getAppMetadata()`
   com `version`, `build` (SHA git/Vercel truncado, ou `"local"`), `deploy` (data do
