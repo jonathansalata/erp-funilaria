@@ -32,18 +32,28 @@ export function LoginForm() {
     event.preventDefault();
     setIsSubmitting(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // `createClient()`/`signInWithPassword()` podem lançar (ex.: configuração do Supabase
+    // ausente/inválida). Sem este try/catch, a exceção dentro desta função `async` se torna
+    // uma promise rejeitada não tratada: o botão fica preso em "Entrando..." (nunca chega ao
+    // `setIsSubmitting(false)`) e o erro não tratado pode escalar até `global-error.tsx`.
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      toast.error("Não foi possível entrar. Verifique e-mail e senha.");
+      if (error) {
+        toast.error("Não foi possível entrar. Verifique e-mail e senha.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const redirectTo = searchParams.get("redirectTo") ?? "/";
+      router.push(redirectTo);
+      router.refresh();
+    } catch (err) {
+      console.error("[login-form] erro inesperado ao autenticar:", err);
+      toast.error("Não foi possível conectar ao servidor. Tente novamente em instantes.");
       setIsSubmitting(false);
-      return;
     }
-
-    const redirectTo = searchParams.get("redirectTo") ?? "/";
-    router.push(redirectTo);
-    router.refresh();
   }
 
   return (

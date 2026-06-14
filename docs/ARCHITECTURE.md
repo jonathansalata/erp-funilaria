@@ -6,6 +6,23 @@
 
 ## Changelog
 
+- **v1.18** — Bloco 37 (resiliência do `AuthProvider`, logout, "Alterar Senha" e diagnóstico do
+  proxy de auth, 2026-06-14): causa raiz comum de 4 problemas em produção (sem logout acessível,
+  avatar do Header não abria "Meu Perfil", `/configuracoes/perfil` e Checklist Templates caindo
+  em `global-error.tsx`) — `src/components/providers/auth-provider.tsx` envolve todo o
+  `(dashboard)/layout.tsx` e qualquer exceção não tratada em `createClient()`/
+  `getSession()`/`onAuthStateChange()`/`loadProfileAndPermissions()`/`signOut()` (ex.: env vars
+  `NEXT_PUBLIC_SUPABASE_*` ausentes em Production) gerava uma promise rejeitada não tratada,
+  escalando para `global-error.tsx` e impedindo todo o dashboard de renderizar. Corrigido com
+  `try/catch/finally` em todos os pontos de chamada ao Supabase no provider, degradando para
+  estado "sem sessão" em vez de lançar; `signOut()` sempre limpa estado e redireciona para
+  `/login`. `src/components/auth/login-form.tsx` ganhou `try/catch` em `handleSubmit` (evita
+  botão preso em "Entrando..." em caso de erro inesperado). `src/components/layout/header.tsx`
+  ganhou item "Alterar Senha" (`/redefinir-senha`) no dropdown do usuário. Diagnóstico adicional
+  registrado: `/` não redireciona em produção porque `NEXT_PUBLIC_SUPABASE_URL`/
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` aparentam ausentes/incorretas no ambiente Production do Vercel
+  (`src/lib/supabase/middleware.ts` faz bypass sem essas vars) — pendência de configuração,
+  fora do escopo de código. Ver [DECISIONS.md](../DECISIONS.md#bloco-37--resiliência-do-authprovider-logout-alterar-senha-e-diagnóstico-do-proxy-2026-06-14).
 - **v1.17** — Bloco 36 (correção do CRUD de usuários — modal "Editar" abrindo vazio,
   2026-06-14): causa raiz em `src/components/usuarios/user-form-dialog.tsx` — `values` só era
   sincronizado a partir da prop `user` dentro de `handleOpenChange` (callback `onOpenChange` do

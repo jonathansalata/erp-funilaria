@@ -27,9 +27,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Carrega `profiles` + RBAC (papel e permissões) do usuário autenticado. Qualquer falha aqui
+  // (Supabase indisponível, env vars ausentes, erro de rede/RPC) é tratada como "sem perfil" em
+  // vez de propagar — uma exceção não tratada neste provider derrubaria toda a árvore do
+  // dashboard (AuthProvider envolve `(dashboard)/layout.tsx` por completo) e cairia no
+  // error boundary mais próximo (ou em `global-error.tsx`, na ausência de um).
   const loadProfileAndPermissions = useCallback(async (currentUser: User | null) => {
-    const supabase = createClient();
-
     if (!currentUser) {
       setProfile(null);
       setRoleName(null);
@@ -37,36 +40,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const [{ data: profileData }, { data: roleNameData }, { data: permissionsData }] =
-      await Promise.all([
+    try {
+      const supabase = createClient();
+      const [profileResult, roleNameResult, permissionsResult] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
         supabase.rpc("fn_get_my_role_name"),
         supabase.rpc("fn_get_my_permissions"),
       ]);
 
-    setProfile(profileData ?? null);
-    setRoleName(roleNameData ?? null);
-    setPermissions((permissionsData ?? []) as PermissionEntry[]);
+      if (profileResult.error) {
+        console.error("[auth-provider] falha ao carregar profile:", profileResult.error.message);
+      }
+      if (roleNameResult.error) {
+        console.error("[auth-provider] falha ao carregar role:", roleNameResult.error.message);
+      }
+      if (permissionsResult.error) {
+        console.error(
+          "[auth-provider] falha ao carregar permissions:",
+          permissionsResult.error.message,
+        );
+      }
+
+      setProfile(profileResult.data ?? null);
+      setRoleName(roleNameResult.data ?? null);
+      setPermissions((permissionsResult.data ?? []) as PermissionEntry[]);
+    } catch (err) {
+      console.error("[auth-provider] erro inesperado ao carregar profile/permissions:", err);
+      setProfile(null);
+      setRoleName(null);
+      setPermissions([]);
+    }
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
+    let active = true;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      await loadProfileAndPermissions(session?.user ?? null);
-      setIsLoading(false);
-    });
+    async function init() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      async (_event: string, session: Session | null) => {
+        if (error) {
+          console.error("[auth-provider] getSession retornou erro:", error.message);
+        }
+
+        if (!active) return;
         setUser(session?.user ?? null);
         await loadProfileAndPermissions(session?.user ?? null);
-        setIsLoading(false);
-      },
-    );
+      } catch (err) {
+        console.error("[auth-provider] erro inesperado ao inicializar sessão:", err);
+        if (!active) return;
+        setUser(null);
+        setProfile(null);
+        setRoleName(null);
+        setPermissions([]);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
 
-    return () => subscription.subscription.unsubscribe();
+    void init();
+
+    let unsubscribe: (() => void) | undefined;
+    try {
+      const supabase = createClient();
+      const { data: subscription } = supabase.auth.onAuthStateChange(
+        async (_event: string, session: Session | null) => {
+          if (!active) return;
+          setUser(session?.user ?? null);
+          await loadProfileAndPermissions(session?.user ?? null);
+          setIsLoading(false);
+        },
+      );
+      unsubscribe = () => subscription.subscription.unsubscribe();
+    } catch (err) {
+      console.error("[auth-provider] erro inesperado ao registrar onAuthStateChange:", err);
+    }
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
   }, [loadProfileAndPermissions]);
 
   const refreshProfile = useCallback(async () => {
@@ -74,10 +131,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadProfileAndPermissions, user]);
 
   const signOut = useCallback(async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("[auth-provider] erro ao encerrar sessão:", err);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      setRoleName(null);
+      setPermissions([]);
+      router.push("/login");
+      router.refresh();
+    }
   }, [router]);
 
   return (

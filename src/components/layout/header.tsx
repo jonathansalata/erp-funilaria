@@ -118,7 +118,10 @@ export function Header() {
             <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem render={<Link href="/configuracoes/perfil" />}>
-              Perfil
+              Meu Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/redefinir-senha" />}>
+              Alterar Senha
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/configuracoes" />}>
               Configurações

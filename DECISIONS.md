@@ -3,6 +3,72 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Bloco 37 — Resiliência do AuthProvider, Logout, Alterar Senha e Diagnóstico do Proxy (2026-06-14)
+
+**Problemas reportados em produção (Vercel)**:
+
+1. Sem opção de logout acessível.
+2. Clique no usuário/avatar do Header não abria "Meu Perfil".
+3. `/configuracoes/perfil` caía no Error Boundary (`global-error.tsx`).
+4. Configurações → Templates de Checklist caía no Error Boundary.
+5. (Diagnóstico prévio, mesmo bloco) `/` não redirecionava para `/login` em produção e o
+   login ficava preso em "Entrando..." antes de cair em `global-error.tsx`.
+
+**Causa raiz comum (1-4)**: `src/components/providers/auth-provider.tsx` — `AuthProvider`
+envolve **todo** o `(dashboard)/layout.tsx` (Header, Sidebar e `children`). Seu `useEffect`
+chamava `createClient()` e `supabase.auth.getSession()`/`onAuthStateChange()`/
+`loadProfileAndPermissions()` sem nenhum tratamento de erro. Qualquer falha do client Supabase
+(env vars `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` ausentes/incorretas no
+ambiente de produção, erro de rede, erro de RPC) lançava uma exceção dentro de uma Promise não
+aguardada pelo React — uma "unhandled promise rejection" dentro do `useEffect` do provider raiz
+do dashboard, que o App Router escala para `global-error.tsx` por falta de um boundary que a
+capture. Como o `AuthProvider` nunca terminava de montar com sucesso, **nenhuma página do
+dashboard renderizava** — daí o Header (e seu dropdown com Perfil/Sair) nunca aparecer
+funcional, e `/configuracoes/perfil` e Checklist Templates (ambas dentro do mesmo layout)
+quebrarem igualmente.
+
+Validação isolada do backend (script ad-hoc com `@supabase/supabase-js`, removido após uso):
+`signInWithPassword`, `select * from profiles`, `fn_get_my_role_name()` e
+`fn_get_my_permissions()` para `admin@oficinademo.com` retornam dados válidos sem erro — ou seja,
+a query/RPC em si nunca foi o problema; o problema é a ausência de tratamento de erro no
+`AuthProvider` em torno dessas chamadas.
+
+**Correção**:
+
+- `src/components/providers/auth-provider.tsx` — `loadProfileAndPermissions`,
+  `getSession()`/`onAuthStateChange` (dentro de `useEffect`) e `signOut()` agora envolvidos em
+  `try/catch/finally`. Qualquer erro é logado via `console.error` e degrada para
+  `user=null`/`profile=null`/`roleName=null`/`permissions=[]` + `isLoading=false` — nunca lança.
+  `signOut()` sempre limpa o estado local e redireciona para `/login`, mesmo se
+  `supabase.auth.signOut()` falhar. Adicionada flag `active` para evitar `setState` após
+  desmontagem.
+- `src/components/auth/login-form.tsx` — `handleSubmit` envolvido em `try/catch`; erro
+  inesperado em `createClient()`/`signInWithPassword()` agora exibe toast de erro e libera o
+  botão (`setIsSubmitting(false)`) em vez de deixá-lo preso em "Entrando..." e escalar para
+  `global-error.tsx`.
+- `src/lib/supabase/middleware.ts` — mantido o `try/catch` do `getUser()` (Fase 3.3.1) com
+  `console.error` em vez de log de debug; sem mudança de comportamento de redirect.
+- `src/components/layout/header.tsx` — dropdown do usuário ganhou o item "Alterar Senha"
+  (`/redefinir-senha`, reaproveitando o fluxo de `updateUser({ password })` da Fase 3.3.1/3.3.2
+  para sessão já autenticada). Itens "Meu Perfil" (`/configuracoes/perfil`), "Configurações" e
+  "Sair" (`signOut()`) já existiam desde a Fase 3.3 e permanecem.
+
+**Pendência externa (não corrigível em código)**: o diagnóstico inicial deste bloco identificou
+que `/` e rotas protegidas não redirecionavam em produção porque
+`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` aparentam estar ausentes/incorretas no
+ambiente **Production** do Vercel (o middleware faz bypass total quando essas vars não estão
+disponíveis — `src/lib/supabase/middleware.ts`). Isso está fora do escopo de código: requer
+configurar as env vars no painel do Vercel (Production) e disparar novo deploy (`NEXT_PUBLIC_*`
+é inlinado em build-time). A resiliência adicionada ao `AuthProvider`/`login-form` evita que essa
+condição (ou qualquer outra falha do client Supabase) derrube a aplicação inteira, mas não
+substitui a correção da configuração de ambiente.
+
+**Validação**: `npm run typecheck`, `npm run lint` e `npm run build` sem erros (28 rotas).
+Redirects `/` → `/login?redirectTo=%2F` e `/configuracoes/perfil` → `/login?redirectTo=...`
+confirmados via `curl` no servidor local. Fluxo `signInWithPassword` + `profiles` +
+`fn_get_my_role_name`/`fn_get_my_permissions` para `admin@oficinademo.com` validado via script
+ad-hoc (sem erros).
+
 ## Bloco 36 — Correção do CRUD de Usuários (Modal Editar) (2026-06-14)
 
 **Bug confirmado**: ao clicar em "Editar" em `/usuarios`, o modal `UserFormDialog` abria com todos

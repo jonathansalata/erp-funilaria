@@ -13,6 +13,7 @@ export async function updateSession(request: NextRequest) {
   // variáveis configuradas (ex.: ambiente Vercel sem Supabase), o proxy não
   // deve quebrar a aplicação — apenas segue sem renovar sessão.
   if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("[middleware] NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes — auth desativada");
     return supabaseResponse;
   }
 
@@ -44,7 +45,8 @@ export async function updateSession(request: NextRequest) {
       data: { user: currentUser },
     } = await supabase.auth.getUser();
     user = currentUser;
-  } catch {
+  } catch (err) {
+    console.error("[middleware] getUser() lançou — tratando como não autenticado:", err);
     user = null;
   }
 
