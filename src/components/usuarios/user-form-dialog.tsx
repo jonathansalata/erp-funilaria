@@ -47,9 +47,18 @@ const EMPTY_VALUES: UserFormValues = {
 
 export function UserFormDialog({ open, onOpenChange, user, onSubmit }: UserFormDialogProps) {
   const [values, setValues] = useState<UserFormValues>(EMPTY_VALUES);
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
 
-  function handleOpenChange(value: boolean) {
-    if (value) {
+  // O Dialog é controlado externamente (`setFormOpen(true)` em `users-view.tsx`), então
+  // `onOpenChange` do Base UI só dispara em eventos de fechamento (Esc/backdrop/botão "Cancelar"),
+  // nunca quando o pai abre o modal. Sincronizar `values` durante a renderização (mesmo padrão de
+  // `profile-view.tsx`) garante que o modo EDIT carregue os dados do `user` atual a cada abertura
+  // (e não os de uma edição anterior) e que o modo CREATE sempre comece vazio.
+  const dialogKey = open ? (user?.id ?? "__new__") : null;
+
+  if (dialogKey !== syncedKey) {
+    setSyncedKey(dialogKey);
+    if (dialogKey) {
       setValues(
         user
           ? {
@@ -62,7 +71,6 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit }: UserFormD
           : EMPTY_VALUES,
       );
     }
-    onOpenChange(value);
   }
 
   const isValid = values.name.trim() !== "" && values.email.trim() !== "";
@@ -80,7 +88,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit }: UserFormD
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{user ? "Editar usuário" : "Novo usuário"}</DialogTitle>

@@ -33,12 +33,26 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANTE: não remova o supabase.auth.getUser().
   // Ele renova o token de sessão, mantendo o usuário autenticado.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  //
+  // `getUser()` pode lançar (em vez de retornar `error`) quando o cookie de
+  // sessão está corrompido/expirado ou a API do Supabase está inacessível.
+  // Sem este try/catch, a exceção derruba o proxy inteiro e o Next/Vercel
+  // exibe "This page couldn't load" em vez de redirecionar para `/login`.
+  let user = null;
+  try {
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    user = currentUser;
+  } catch {
+    user = null;
+  }
 
   const { pathname, search } = request.nextUrl;
-  const isAuthRoute = pathname.startsWith("/login");
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/recuperar-senha") ||
+    pathname.startsWith("/redefinir-senha");
 
   if (!user && !isAuthRoute) {
     const redirectUrl = new URL("/login", request.url);
@@ -46,7 +60,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user && isAuthRoute) {
+  if (user && pathname.startsWith("/login")) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

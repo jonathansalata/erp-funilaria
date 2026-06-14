@@ -6,6 +6,31 @@
 
 ## Changelog
 
+- **v1.17** — Bloco 36 (correção do CRUD de usuários — modal "Editar" abrindo vazio,
+  2026-06-14): causa raiz em `src/components/usuarios/user-form-dialog.tsx` — `values` só era
+  sincronizado a partir da prop `user` dentro de `handleOpenChange` (callback `onOpenChange` do
+  Base UI), que não dispara quando o modal é aberto via `setFormOpen(true)` (componente
+  controlado em `users-view.tsx`). Corrigido com sincronização durante a renderização (mesmo
+  padrão `loadedProfileId`/`syncedKey` de `profile-view.tsx`): novo estado `syncedKey` guarda a
+  identidade da abertura atual (`user.id` em EDIT, `"__new__"` em CREATE, `null` quando fechado);
+  quando diverge do `dialogKey` calculado, `values` é recalculado (`EMPTY_VALUES` em CREATE, dados
+  do `user` em EDIT). Garante que "Editar A → Fechar → Editar B" carregue os dados de B e que
+  "Novo usuário" sempre comece vazio. `npm run typecheck`/`lint`/`build` validados (28 rotas).
+  Detalhes em `DECISIONS.md`, seção "Bloco 36".
+- **v1.16** — Fase 3.3.1 + 3.3.2 (correção do fluxo de autenticação e UX do login, 2026-06-14):
+  causa raiz do bug crítico "`/` exibe 'This page couldn't load' em vez de redirecionar para
+  `/login`" identificada em `src/lib/supabase/middleware.ts` — `supabase.auth.getUser()` sem
+  `try/catch` relançava erros (cookie inválido/expirado, falha de rede) e derrubava o Proxy
+  inteiro. Corrigido com `try/catch` (erro = usuário não autenticado). Criados `src/app/error.tsx`
+  e `src/app/global-error.tsx` (App Router não tinha nenhum `error.tsx`, então qualquer exceção de
+  render zerava a tela — mesma causa raiz dos Blocos 16/18 da Fase 2B.6.1). `LoginForm`
+  reformulado (campos `h-12`, mostrar/ocultar senha, checkbox "Manter conectado", link "Esqueci
+  minha senha"). Novo fluxo de recuperação de senha: `/recuperar-senha`
+  (`resetPasswordForEmail`) e `/redefinir-senha` (`exchangeCodeForSession` +
+  `updateUser({ password })`), ambas marcadas como rotas públicas no middleware. Revalidadas as
+  pendências "Perfil do Usuário" (resolvida na Fase 3.3) e "Templates de Checklist" (resolvida
+  enquanto o módulo permanecer mock). `npm run build`/`lint`/`tsc --noEmit` validados (28 rotas).
+  Detalhes em `DECISIONS.md`, seção "Fase 3.3.1 + 3.3.2".
 - **v1.15** — Fase 3.3 (autenticação real Supabase, 2026-06-13): substituído o acesso aberto
   pelo fluxo real de auth (login/logout/refresh/proteção de rotas), mantendo todos os módulos
   funcionais (Clientes, Veículos, Vistorias, Agenda, Orçamentos, OS, Financeiro) e os stores
@@ -476,9 +501,16 @@ A tela inicial (`/`, dentro do grupo `(dashboard)`) é dividida em duas zonas/ab
 
 - Supabase Auth com provider **Email/Senha** apenas.
 - **Sem signup público**: a tela de login não expõe cadastro. Criação de usuários é feita por administradores via Server Action que usa `supabase.auth.admin.createUser()` (client `service_role`, executado apenas no servidor).
-- Fluxo de "Recuperar senha" usa `resetPasswordForEmail` (Supabase envia e-mail).
-- "Lembrar acesso" = sessão persistente padrão do Supabase (refresh token em cookie httpOnly via `@supabase/ssr`).
+- Fluxo de "Recuperar senha" usa `resetPasswordForEmail` (Supabase envia e-mail). Implementado na
+  Fase 3.3.1/3.3.2: `/recuperar-senha` (solicita o e-mail) e `/redefinir-senha` (troca o `code` da
+  URL por sessão via `exchangeCodeForSession` e define a nova senha via `updateUser`).
+- "Lembrar acesso" = sessão persistente padrão do Supabase (refresh token em cookie httpOnly via `@supabase/ssr`). Checkbox "Manter conectado" presente na UI desde a Fase 3.3.2; semântica de
+  cookie de sessão vs. persistente (`cookieOptions.maxAge`) ainda não diferenciada — pendência
+  para a Fase 3.4.
 - Tabela `profiles` (1:1 com `auth.users`) guarda dados adicionais (nome, telefone, foto, cargo, status, tema, `organization_id`, `role_id`).
+- O middleware (`src/lib/supabase/middleware.ts`) envolve `supabase.auth.getUser()` em
+  `try/catch`: erros (cookie inválido/expirado, falha de rede) são tratados como "sem usuário
+  autenticado" em vez de derrubar o Proxy (Fase 3.3.1).
 - **Custom Access Token Hook** (`auth.custom_access_token_hook`, configurado em `config.toml`/Dashboard): a cada emissão/refresh de token, lê `profiles.organization_id` e `profiles.role_id` e injeta em `app_metadata` do JWT. `fn_current_org_id()` e `fn_current_role_id()` (SQL functions `STABLE`) leem esses claims via `auth.jwt()`, evitando joins repetidos em cada policy de RLS.
 
 ### 5.2 Camadas de acesso ao Postgres

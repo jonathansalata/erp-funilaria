@@ -3,6 +3,43 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Bloco 36 — Correção do CRUD de Usuários (Modal Editar) (2026-06-14)
+
+**Bug confirmado**: ao clicar em "Editar" em `/usuarios`, o modal `UserFormDialog` abria com todos
+os campos vazios (deveria carregar os dados do usuário clicado).
+
+**Causa raiz**: `src/components/usuarios/user-form-dialog.tsx` sincronizava `values` (estado
+local do formulário) a partir da prop `user` apenas dentro de `handleOpenChange`, a função
+passada como `onOpenChange` do `<Dialog>` (Base UI). Porém o `Dialog` é controlado externamente —
+`users-view.tsx` chama `setFormOpen(true)` diretamente em `openEdit`/`openNew`, o que altera a
+prop `open` sem nunca invocar `onOpenChange`. Esse callback do Base UI só dispara em eventos de
+fechamento iniciados pela UI (Esc, clique no backdrop, botão "Cancelar"). Resultado: `values`
+nunca era populado com os dados do `user` ao abrir o modal para edição — permanecia em
+`EMPTY_VALUES` (estado inicial) ou com os dados da edição anterior.
+
+**Correção**: `src/components/usuarios/user-form-dialog.tsx` — substituída a sincronização em
+`handleOpenChange` por um ajuste de estado durante a renderização (mesmo padrão já usado em
+`profile-view.tsx` para evitar `setState` em `useEffect`, que o ESLint
+`react-hooks/set-state-in-effect` reprova). Novo estado `syncedKey` guarda a "identidade" da
+abertura atual do modal (`user?.id` em modo EDIT, `"__new__"` em modo CREATE, ou `null` quando
+fechado). A cada render, se `dialogKey !== syncedKey`, `values` é recalculado a partir de `user`
+(ou `EMPTY_VALUES` se não houver `user`) e `syncedKey` é atualizado. Como o modal fecha sempre com
+`dialogKey = null`, toda nova abertura (mesmo repetindo "Novo usuário" ou alternando entre
+usuários diferentes) força uma nova sincronização — eliminando dados vazios no modo EDIT e dados
+residuais de uma edição anterior.
+
+- **Modo CREATE** (`openNew`): `dialogKey = "__new__"`, `user = undefined` → `values =
+EMPTY_VALUES`.
+- **Modo EDIT** (`openEdit(user)`): `dialogKey = user.id`, `values` populado com
+  `name`/`email`/`phone`/`jobTitle`/`role` do `user`.
+- **Cenário "Editar A → Fechar → Editar B"**: ao fechar, `dialogKey` volta a `null`
+  (`syncedKey` diferente na próxima abertura), então abrir B sempre repopula com os dados de B.
+- Campos "Status" e "Senha inicial/Resetar senha" não fazem parte do formulário (gerenciados
+  separadamente via menu de ações em `users-view.tsx` — `setUserStatus`/`resetUserPassword`); não
+  alterados nesta correção.
+
+**Validação**: `npm run typecheck`, `npm run lint` e `npm run build` sem erros (28 rotas).
+
 ## Pendências Conhecidas — Fase 2 (revalidar durante a Fase 3)
 
 Aprovado o planejamento da Fase 3 (`docs/FASE3_PLANO.md`). Antes de iniciar a implementação,
@@ -30,6 +67,91 @@ o início da Fase 3:
 reais (`useAuth()`/`usePermissions()`), eliminando a dependência de `hasHydrated`. "Templates de
 Checklist" corrigido na causa raiz: `onRehydrateStorage` em `erp-data-store.ts` agora garante
 `hasHydrated = true` mesmo em erro de rehydration. Ver "Fase 3.3" abaixo.
+
+## Fase 3.3.1 + 3.3.2 — Correção do Fluxo de Autenticação e UX da Tela de Login (2026-06-14)
+
+### Problema 1 (crítico) — `/` exibia "This page couldn't load" em vez de redirecionar
+
+- **Causa raiz**: em `src/lib/supabase/middleware.ts`, `supabase.auth.getUser()` era chamado sem
+  `try/catch`. O método `_getUser()` do `@supabase/auth-js` **relança** qualquer erro que não seja
+  um `AuthError` reconhecido (ex.: cookie de sessão corrompido/expirado, falha de rede ao validar
+  o token junto à API do Supabase). Como o `proxy.ts` (middleware) não tratava essa exceção, ela
+  derrubava a execução do Proxy **antes** de qualquer redirect — em produção (Vercel), isso
+  aparece como a página de erro genérica "This page couldn't load" em `/` em vez do redirect
+  esperado para `/login`. Sem sessão válida em cache, o comportamento variava entre "funciona" (
+  `getUser()` resolve normalmente, sem cookies → `user = null` → redirect ok) e "quebra" (cookie
+  presente porém inválido/expirado → exceção não tratada).
+- **Correção**: `src/lib/supabase/middleware.ts` agora envolve `supabase.auth.getUser()` em
+  `try/catch`; qualquer erro é tratado como "sem usuário autenticado", preservando o fluxo de
+  redirect para `/login` (com `redirectTo`). Também passou a considerar `/recuperar-senha` e
+  `/redefinir-senha` como rotas públicas (não exigem sessão), e o redirect "usuário autenticado
+  tentando acessar rota pública" passou a ser restrito apenas a `/login` (evita expulsar o usuário
+  de `/redefinir-senha` durante o fluxo de recuperação de senha, quando ele já está autenticado
+  via link de recuperação).
+- **Resiliência adicional**: criados `src/app/error.tsx` e `src/app/global-error.tsx` (App Router
+  não possuía **nenhum** `error.tsx` em nenhuma rota — qualquer exceção não tratada no render
+  zerava a tela inteira, mesmo padrão de causa raiz já registrado nos Blocos 16/18 da Fase
+  2B.6.1). Agora qualquer erro de renderização (incluindo dentro do `layout.tsx` raiz) exibe uma
+  tela de recuperação com "Tentar novamente"/"Voltar ao início" em vez de tela branca.
+- **"Demora excessiva" no login**: não foi identificado bloqueio causado pelo `AuthProvider` (o
+  grupo de rotas `(auth)` não usa `<AuthProvider>` — apenas `(dashboard)/layout.tsx`), nem por
+  RPCs antes da renderização do formulário. A latência observada é predominantemente o
+  `supabase.auth.getUser()` do middleware (chamada de rede à API do Supabase em **toda** requisição
+  coberta pelo `matcher`, incluindo `/login`) somada ao runtime Node.js do Proxy (padrão a partir
+  do Next 16). Mitigado indiretamente pelo fix acima (sem mais exceções/timeouts não tratados
+  travando a resposta); otimização adicional (ex.: `getClaims()` para validação local de JWT sem
+  round-trip) fica registrada como recomendação para a Fase 3.4.
+
+### Problema 2 — UX da tela de login
+
+- **`src/components/auth/login-form.tsx`**: campos com altura `h-12` (48px) e `text-base`,
+  espaçamento entre campos aumentado (`gap-5`); campo "Senha" usa `InputGroup`/`InputGroupButton`
+  com ícone de olho (`lucide-react` `Eye`/`EyeOff`) para mostrar/ocultar senha; checkbox "Manter
+  conectado" (UI preparada, comportamento de persistência de sessão segue o padrão do
+  `@supabase/ssr` — ajuste fino de `cookieOptions.maxAge` por escolha do usuário fica para a Fase
+  3.4); link "Esqueci minha senha" para `/recuperar-senha`; Card com logo maior (`size-12`),
+  título `text-2xl` e `shadow-lg`.
+- **Fluxo de recuperação de senha (parcial, conforme solicitado)**:
+  - `src/app/(auth)/recuperar-senha/page.tsx` + `src/components/auth/recover-password-form.tsx`
+    (novos): formulário de e-mail, chama `supabase.auth.resetPasswordForEmail(email, {
+redirectTo: \`${origin}/redefinir-senha\` })`, com tela de confirmação "Verifique seu
+    e-mail".
+  - `src/app/(auth)/redefinir-senha/page.tsx` + `src/components/auth/reset-password-form.tsx`
+    (novos): troca o `code` da URL por sessão (`exchangeCodeForSession`) ou reaproveita sessão
+    existente; formulário de nova senha (com mostrar/ocultar) chama
+    `supabase.auth.updateUser({ password })`; exibe "Link inválido ou expirado" com opção de
+    solicitar novo link quando não há sessão/código válido.
+  - Ambas as rotas adicionadas como públicas no middleware (ver Problema 1).
+
+### Pendências da Fase 2 revalidadas
+
+- **Perfil do Usuário** (`/configuracoes/perfil`): `profile-view.tsx` já usa dados reais
+  (`useAuth()`/`usePermissions()`) desde a Fase 3.3; nenhum problema de hidratação encontrado
+  nesta auditoria. **Status: resolvido.**
+- **Templates de Checklist**: `checklist-templates-manager.tsx` continua sobre
+  `useErpDataStore` (mock, fora do escopo da migração Supabase desta fase), com o guard
+  `if (!hasHydrated) return null` (Fase 2B.8.4) e o fix de `onRehydrateStorage` (Fase 3.3) ainda
+  em vigor. Nenhuma regressão encontrada. **Status: resolvido enquanto o módulo permanecer mock**;
+  será re-equacionado quando Checklist Templates migrar para Supabase.
+
+### Validação
+
+- `npm run typecheck`, `npm run lint` e `npm run build` sem erros (28 rotas, incl. `/login`,
+  `/recuperar-senha`, `/redefinir-senha`).
+- `npm run dev`: `GET /` → `307` para `/login?redirectTo=%2F`; `/login`, `/recuperar-senha`,
+  `/redefinir-senha` → `200`; `/configuracoes/perfil` e `/configuracoes` (sem sessão) → `307`
+  para `/login?redirectTo=...`. HTML de `/login` confirma novos elementos ("Esqueci minha senha",
+  "Manter conectado").
+
+### Recomendação para a Fase 3.4
+
+- Avaliar `supabase.auth.getClaims()` (validação local de JWT, sem round-trip) no middleware para
+  reduzir a latência por requisição, reservando `getUser()` para Server Components/Actions que
+  exigem validação revalidada junto ao Supabase.
+- Implementar a semântica completa de "Manter conectado" (cookie de sessão vs. persistente) via
+  `cookieOptions` do `createBrowserClient`.
+- Avaliar migração de Checklist Templates para Supabase (eliminaria definitivamente a dependência
+  de `erp-data-store`/`hasHydrated` nessa tela).
 
 ## Fase 3.0 — Inventário, Arquitetura e Planejamento Supabase (2026-06-13)
 
