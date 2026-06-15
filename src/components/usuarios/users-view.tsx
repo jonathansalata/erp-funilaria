@@ -243,31 +243,47 @@ export function UsersView() {
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                 <MoreHorizontal />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-auto min-w-48">
                 {!isSelf && row.status !== "active" && (
-                  <DropdownMenuItem onClick={() => handleSetStatus(row, "active")}>
+                  <DropdownMenuItem
+                    className="whitespace-nowrap"
+                    onClick={() => handleSetStatus(row, "active")}
+                  >
                     <Unlock />
                     Reativar
                   </DropdownMenuItem>
                 )}
                 {!isSelf && row.status !== "inactive" && (
-                  <DropdownMenuItem onClick={() => handleSetStatus(row, "inactive")}>
+                  <DropdownMenuItem
+                    className="whitespace-nowrap"
+                    onClick={() => handleSetStatus(row, "inactive")}
+                  >
                     <Lock />
                     Inativar
                   </DropdownMenuItem>
                 )}
                 {!isSelf && row.status !== "blocked" && (
-                  <DropdownMenuItem onClick={() => handleSetStatus(row, "blocked")}>
+                  <DropdownMenuItem
+                    className="whitespace-nowrap"
+                    onClick={() => handleSetStatus(row, "blocked")}
+                  >
                     <Lock />
                     Bloquear
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={() => openResetPassword(row)}>
+                <DropdownMenuItem
+                  className="whitespace-nowrap"
+                  onClick={() => openResetPassword(row)}
+                >
                   <KeyRound />
                   Resetar senha
                 </DropdownMenuItem>
                 {!isSelf && (
-                  <DropdownMenuItem variant="destructive" onClick={() => setDeletingUser(row)}>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="whitespace-nowrap"
+                    onClick={() => setDeletingUser(row)}
+                  >
                     <Trash2 />
                     Excluir
                   </DropdownMenuItem>
