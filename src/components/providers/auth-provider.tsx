@@ -28,7 +28,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // é definido, mesmo com o `profile` já tendo sido carregado com sucesso anteriormente.
 const AUTH_TIMEOUT_MS = 8000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), ms);
     promise.then(
@@ -79,18 +79,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      try {
-        const supabase = createClient();
-        const [profileResult, roleNameResult, permissionsResult] = await withTimeout(
-          Promise.all([
-            supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
-            supabase.rpc("fn_get_my_role_name"),
-            supabase.rpc("fn_get_my_permissions"),
-          ]),
-          AUTH_TIMEOUT_MS,
-          "Tempo esgotado ao carregar perfil e permissões.",
-        );
+      const supabase = createClient();
 
+      console.log(
+        `[PROFILE_DEBUG] query profiles — origem=${origin}, auth.user.id=${currentUser.id}, where=id.eq.${currentUser.id}, single()`,
+      );
+
+      // Bloco 48D: as 3 chamadas eram combinadas num único `Promise.all` + `withTimeout`.
+      // Se QUALQUER UMA das 3 (inclusive as RPCs de role/permissions) der timeout/erro,
+      // o `Promise.all` rejeita inteiro e o `catch` definia apenas `profileError`, SEM
+      // nunca inspecionar o resultado da query de `profiles` — mesmo que ela tivesse
+      // retornado com sucesso. Isso fazia `profile` permanecer `null` mesmo com
+      // `auth.user` presente e a linha existindo em `profiles`. Agora cada chamada é
+      // independente (`Promise.allSettled`): uma falha/timeout no role ou nas
+      // permissions não impede mais `profile` de ser definido.
+      const [profileSettled, roleNameSettled, permissionsSettled] = await Promise.allSettled([
+        withTimeout(
+          supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
+          AUTH_TIMEOUT_MS,
+          "Tempo esgotado ao carregar profile.",
+        ),
+        withTimeout(
+          supabase.rpc("fn_get_my_role_name"),
+          AUTH_TIMEOUT_MS,
+          "Tempo esgotado ao carregar role.",
+        ),
+        withTimeout(
+          supabase.rpc("fn_get_my_permissions"),
+          AUTH_TIMEOUT_MS,
+          "Tempo esgotado ao carregar permissions.",
+        ),
+      ]);
+
+      if (profileSettled.status === "fulfilled") {
+        const profileResult = profileSettled.value;
+        console.log(
+          `[PROFILE_DEBUG] profiles query resultado — origem=${origin}, data=${JSON.stringify(profileResult.data)}, error=${profileResult.error?.message ?? null}`,
+        );
         if (profileResult.error) {
           console.error("[auth-provider] falha ao carregar profile:", profileResult.error.message);
           console.log(
@@ -104,13 +129,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(profileResult.data ?? null);
           setProfileError(null);
         }
+      } else {
+        console.error("[auth-provider] erro/timeout ao carregar profile:", profileSettled.reason);
+        console.log(
+          `[PROFILE_DEBUG] profiles query rejeitada — origem=${origin}, erro=${profileSettled.reason instanceof Error ? profileSettled.reason.message : String(profileSettled.reason)}, profile mantido (não sobrescreve com null)`,
+        );
+        setProfileError(
+          profileSettled.reason instanceof Error
+            ? profileSettled.reason.message
+            : "Erro inesperado ao carregar perfil.",
+        );
+      }
 
+      if (roleNameSettled.status === "fulfilled") {
+        const roleNameResult = roleNameSettled.value;
         if (roleNameResult.error) {
           console.error("[auth-provider] falha ao carregar role:", roleNameResult.error.message);
         } else {
           setRoleName(roleNameResult.data ?? null);
         }
+      } else {
+        console.error("[auth-provider] erro/timeout ao carregar role:", roleNameSettled.reason);
+      }
 
+      if (permissionsSettled.status === "fulfilled") {
+        const permissionsResult = permissionsSettled.value;
         if (permissionsResult.error) {
           console.error(
             "[auth-provider] falha ao carregar permissions:",
@@ -119,16 +162,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setPermissions((permissionsResult.data ?? []) as PermissionEntry[]);
         }
-      } catch (err) {
-        console.error("[auth-provider] erro inesperado ao carregar profile/permissions:", err);
-        console.log(
-          `[PROFILE_DEBUG] catch em loadProfileAndPermissions — origem=${origin}, erro=${err instanceof Error ? err.message : String(err)}, profile mantido (não sobrescreve com null)`,
+      } else {
+        console.error(
+          "[auth-provider] erro/timeout ao carregar permissions:",
+          permissionsSettled.reason,
         );
-        setProfileError(err instanceof Error ? err.message : "Erro inesperado ao carregar perfil.");
       }
     },
     [],
   );
+
+  // Bloco 46: atualiza `profiles.last_login_at` no banco (via RPC SECURITY DEFINER) e reflete
+  // o novo valor no `profile` em memória imediatamente, sem exigir um segundo carregamento.
+  // Chamada apenas no evento `SIGNED_IN` (login real), nunca em `INITIAL_SESSION`/
+  // `TOKEN_REFRESHED`, e sempre aguardada (sem fire-and-forget) com erro tratado/logado.
+  const touchLastLogin = useCallback(async () => {
+    console.log("[PROFILE_DEBUG] touchLastLogin chamado (origem=onAuthStateChange:SIGNED_IN)");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("fn_touch_my_last_login");
+
+      if (error) {
+        console.error("[auth-provider] falha ao atualizar last_login_at:", error.message);
+        console.log(
+          `[PROFILE_DEBUG] touchLastLogin: erro ao chamar fn_touch_my_last_login — ${error.message}`,
+        );
+        return;
+      }
+
+      const now = new Date().toISOString();
+      console.log(`[PROFILE_DEBUG] touchLastLogin: last_login_at atualizado no banco — now=${now}`);
+      setProfile((prev) => (prev ? { ...prev, last_login_at: now } : prev));
+    } catch (err) {
+      console.error("[auth-provider] erro inesperado ao atualizar last_login_at:", err);
+      console.log(
+        `[PROFILE_DEBUG] touchLastLogin: catch — erro=${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -209,6 +280,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           setUser(session?.user ?? null);
           await loadProfileAndPermissions(session?.user ?? null, `onAuthStateChange:${event}`);
+
+          // Bloco 46: somente em SIGNED_IN (login real) — não em INITIAL_SESSION/TOKEN_REFRESHED —
+          // e somente após a sessão estar totalmente estabelecida (profile já carregado acima).
+          if (event === "SIGNED_IN") {
+            await touchLastLogin();
+          }
+
           console.log(`[PROFILE_DEBUG] onAuthStateChange (event=${event}): setIsLoading(false)`);
           setIsLoading(false);
         },
@@ -225,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false;
       unsubscribe?.();
     };
-  }, [loadProfileAndPermissions]);
+  }, [loadProfileAndPermissions, touchLastLogin]);
 
   const refreshProfile = useCallback(async () => {
     console.log(`[PROFILE_DEBUG] refreshProfile chamado — userId=${user?.id ?? null}`);

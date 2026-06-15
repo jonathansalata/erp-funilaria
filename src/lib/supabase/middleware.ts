@@ -54,7 +54,8 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/recuperar-senha") ||
-    pathname.startsWith("/redefinir-senha");
+    pathname.startsWith("/redefinir-senha") ||
+    pathname.startsWith("/api/auth/");
 
   if (!user && !isAuthRoute) {
     const redirectUrl = new URL("/login", request.url);

@@ -43,7 +43,13 @@ function initials(name: string): string {
 
 export function Header() {
   const pathname = usePathname();
-  const { profile, isLoading, profileError, signOut } = useAuth();
+  const { user, profile, isLoading, profileError, signOut } = useAuth();
+
+  // Bloco 48A: instrumentação de diagnóstico — valores de `profile`/`user` recebidos
+  // do AuthProvider no momento da renderização do Header.
+  console.log(
+    `[HEADER_DEBUG] render — user.id=${user?.id ?? null}, profile.id=${profile?.id ?? null}, profile.full_name=${profile?.full_name ?? null}, profile.avatar_url=${profile?.avatar_url ?? null}, profile.last_login_at=${profile?.last_login_at ?? null}, isLoading=${isLoading}, profileError=${profileError}`,
+  );
 
   // Bloco 42/43: diferencia "carregando" (sem profile ainda, mas sem erro) de "erro ao carregar"
   // (sem profile e com `profileError`) e de "sem perfil" (sessão sem profile vinculado).

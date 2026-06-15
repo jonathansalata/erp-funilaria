@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +20,9 @@ import {
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,8 +32,51 @@ export function LoginForm() {
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Bloco 47: token do desafio Cloudflare Turnstile (modo Managed). Mantido apenas em memória —
+  // nunca persistido — e descartado após cada tentativa de login (sucesso ou falha).
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+
+  const renderTurnstile = useCallback(() => {
+    if (!TURNSTILE_SITE_KEY || !window.turnstile || !turnstileContainerRef.current) return;
+    if (turnstileWidgetIdRef.current) return;
+
+    turnstileWidgetIdRef.current = window.turnstile.render(turnstileContainerRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token) => setTurnstileToken(token),
+      "expired-callback": () => setTurnstileToken(null),
+      "error-callback": () => setTurnstileToken(null),
+    });
+  }, []);
+
+  // Cobre o caso de navegação client-side de volta para `/login`, onde o script do Turnstile
+  // já está carregado (`window.turnstile` existe) e o `onLoad` do <Script> não dispara de novo.
+  useEffect(() => {
+    renderTurnstile();
+    return () => {
+      if (window.turnstile && turnstileWidgetIdRef.current) {
+        window.turnstile.remove(turnstileWidgetIdRef.current);
+        turnstileWidgetIdRef.current = null;
+      }
+    };
+  }, [renderTurnstile]);
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null);
+    if (window.turnstile && turnstileWidgetIdRef.current) {
+      window.turnstile.reset(turnstileWidgetIdRef.current);
+    }
+  }, []);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!turnstileToken) {
+      toast.error("Conclua a verificação de segurança para continuar.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     // `createClient()`/`signInWithPassword()` podem lançar (ex.: configuração do Supabase
@@ -37,8 +84,27 @@ export function LoginForm() {
     // uma promise rejeitada não tratada: o botão fica preso em "Entrando..." (nunca chega ao
     // `setIsSubmitting(false)`) e o erro não tratado pode escalar até `global-error.tsx`.
     try {
+      // Bloco 47: o token do Turnstile é validado no backend (`/api/auth/turnstile`, usando
+      // TURNSTILE_SECRET_KEY) ANTES de qualquer tentativa de autenticação — nunca confiar
+      // apenas na validação do widget no frontend.
+      const verifyRes = await fetch("/api/auth/turnstile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+      const verifyData = (await verifyRes.json().catch(() => null)) as { success?: boolean } | null;
+
+      if (!verifyRes.ok || !verifyData?.success) {
+        toast.error("Não foi possível confirmar que você é humano. Tente novamente.");
+        resetTurnstile();
+        setIsSubmitting(false);
+        return;
+      }
+
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      resetTurnstile();
 
       if (error) {
         toast.error("Não foi possível entrar. Verifique e-mail e senha.");
@@ -46,14 +112,13 @@ export function LoginForm() {
         return;
       }
 
-      void supabase.rpc("fn_touch_my_last_login");
-
       const redirectTo = searchParams.get("redirectTo") ?? "/";
       router.push(redirectTo);
       router.refresh();
     } catch (err) {
       console.error("[login-form] erro inesperado ao autenticar:", err);
       toast.error("Não foi possível conectar ao servidor. Tente novamente em instantes.");
+      resetTurnstile();
       setIsSubmitting(false);
     }
   }
@@ -126,11 +191,18 @@ export function LoginForm() {
             </Label>
           </div>
 
-          <Button type="submit" className="mt-1 h-12 w-full text-base" disabled={isSubmitting}>
+          <div ref={turnstileContainerRef} className="flex justify-center" />
+
+          <Button
+            type="submit"
+            className="mt-1 h-12 w-full text-base"
+            disabled={isSubmitting || !turnstileToken}
+          >
             {isSubmitting ? "Entrando..." : "Entrar"}
           </Button>
         </form>
       </CardContent>
+      <Script src={TURNSTILE_SCRIPT_SRC} strategy="afterInteractive" onLoad={renderTurnstile} />
     </Card>
   );
 }
