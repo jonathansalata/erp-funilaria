@@ -4,6 +4,9 @@ interface TurnstileRenderOptions {
   "expired-callback"?: () => void;
   "error-callback"?: () => void;
   theme?: "light" | "dark" | "auto";
+  size?: "normal" | "compact" | "flexible";
+  appearance?: "always" | "execute" | "interaction-only";
+  execution?: "render" | "execute";
 }
 
 interface TurnstileApi {

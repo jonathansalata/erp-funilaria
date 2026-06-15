@@ -42,8 +42,19 @@ export function LoginForm() {
     if (!TURNSTILE_SITE_KEY || !window.turnstile || !turnstileContainerRef.current) return;
     if (turnstileWidgetIdRef.current) return;
 
+    // Bloco 48B: `size: "flexible"` faz o widget ocupar 100% da largura do
+    // container (acompanhando os campos do formulário); `appearance: "always"`
+    // mantém o widget sempre visível (não esconde após a validação);
+    // `execution: "render"` é o modo padrão do Turnstile Managed — o desafio
+    // (incluindo a exibição do checkbox "Confirme que é humano", quando exigido
+    // pela avaliação de risco da Cloudflare) é decidido pelo modo do widget
+    // configurado no dashboard da Cloudflare para este site key, não por código.
     turnstileWidgetIdRef.current = window.turnstile.render(turnstileContainerRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
+      theme: "auto",
+      size: "flexible",
+      appearance: "always",
+      execution: "render",
       callback: (token) => setTurnstileToken(token),
       "expired-callback": () => setTurnstileToken(null),
       "error-callback": () => setTurnstileToken(null),
@@ -191,7 +202,12 @@ export function LoginForm() {
             </Label>
           </div>
 
-          <div ref={turnstileContainerRef} className="flex justify-center" />
+          <div className="flex flex-col gap-2">
+            <Label className="text-muted-foreground font-normal">
+              Deixe-nos saber que você é humano
+            </Label>
+            <div ref={turnstileContainerRef} className="w-full" />
+          </div>
 
           <Button
             type="submit"
