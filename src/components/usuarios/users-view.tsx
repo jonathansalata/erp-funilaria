@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyRound,
   Lock,
@@ -11,9 +11,11 @@ import {
   Trash2,
   Unlock,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { UserFormDialog, type UserFormValues } from "@/components/usuarios/user-form-dialog";
 import { UserPermissionsDialog } from "@/components/usuarios/user-permissions-dialog";
+import { ResetPasswordDialog } from "@/components/usuarios/reset-password-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import {
   DataTable,
@@ -21,7 +23,7 @@ import {
   type DataTableFilter,
 } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,15 +31,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  USER_ROLE_LABELS,
-  USER_STATUS_LABELS,
-  USER_STATUS_VARIANTS,
-  type PermissionMatrix,
-  type User,
-} from "@/lib/mock-data/users";
+import { useAuth } from "@/hooks/use-auth";
+import { PROFILE_STATUS_LABELS, PROFILE_STATUS_VARIANTS } from "@/lib/auth/status";
+import type { ApiUser, RoleOption } from "@/lib/auth/usuarios-types";
 import { formatDateTime } from "@/lib/utils";
-import { useErpDataStore } from "@/stores/erp-data-store";
 
 function initials(name: string): string {
   return name
@@ -49,155 +46,255 @@ function initials(name: string): string {
 }
 
 export function UsersView() {
-  const users = useErpDataStore((state) => state.users);
-  const createUser = useErpDataStore((state) => state.createUser);
-  const updateUser = useErpDataStore((state) => state.updateUser);
-  const updateUserPermissions = useErpDataStore((state) => state.updateUserPermissions);
-  const setUserStatus = useErpDataStore((state) => state.setUserStatus);
-  const resetUserPassword = useErpDataStore((state) => state.resetUserPassword);
-  const deleteUser = useErpDataStore((state) => state.deleteUser);
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+  const [editingUser, setEditingUser] = useState<ApiUser | undefined>(undefined);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
-  const [permissionsUser, setPermissionsUser] = useState<User | undefined>(undefined);
-  const [deletingUser, setDeletingUser] = useState<User | undefined>(undefined);
+  const [permissionsUser, setPermissionsUser] = useState<ApiUser | undefined>(undefined);
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<ApiUser | undefined>(undefined);
+  const [deletingUser, setDeletingUser] = useState<ApiUser | undefined>(undefined);
+
+  async function fetchUsers() {
+    const response = await fetch("/api/usuarios");
+    const data = await response.json();
+    setIsLoading(false);
+
+    if (!response.ok) {
+      toast.error(data.error ?? "Não foi possível carregar os usuários.");
+      return;
+    }
+
+    setUsers(data.users ?? []);
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de dados via API
+    fetchUsers();
+    fetch("/api/usuarios/roles")
+      .then((res) => res.json())
+      .then((data) => setRoles(data.roles ?? []))
+      .catch(() => undefined);
+  }, []);
 
   function openNew() {
     setEditingUser(undefined);
     setFormOpen(true);
   }
 
-  function openEdit(user: User) {
+  function openEdit(user: ApiUser) {
     setEditingUser(user);
     setFormOpen(true);
   }
 
-  function handleSubmit(values: UserFormValues) {
-    if (editingUser) {
-      updateUser(editingUser.id, values);
-    } else {
-      createUser(values);
+  async function handleSubmit(values: UserFormValues): Promise<boolean> {
+    const isCreate = !editingUser;
+    const response = await fetch(isCreate ? "/api/usuarios" : `/api/usuarios/${editingUser!.id}`, {
+      method: isCreate ? "POST" : "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      toast.error(data.error ?? "Não foi possível salvar o usuário.");
+      return false;
     }
+
+    await fetchUsers();
+    toast.success(isCreate ? "Usuário criado com sucesso." : "Usuário atualizado com sucesso.");
+    return true;
   }
 
-  function openPermissions(user: User) {
+  function openPermissions(user: ApiUser) {
     setPermissionsUser(user);
     setPermissionsOpen(true);
   }
 
-  function handlePermissionsSubmit(matrix: PermissionMatrix) {
-    if (permissionsUser) updateUserPermissions(permissionsUser.id, matrix);
+  function openResetPassword(user: ApiUser) {
+    setResetPasswordUser(user);
+    setResetPasswordOpen(true);
   }
 
-  const columns: DataTableColumn<User>[] = [
+  async function handleResetPassword(password: string): Promise<boolean> {
+    if (!resetPasswordUser) return false;
+
+    const response = await fetch(`/api/usuarios/${resetPasswordUser.id}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      toast.error(data.error ?? "Não foi possível redefinir a senha.");
+      return false;
+    }
+
+    toast.success("Senha redefinida com sucesso.");
+    return true;
+  }
+
+  async function handleSetStatus(user: ApiUser, status: "active" | "inactive" | "blocked") {
+    const response = await fetch(`/api/usuarios/${user.id}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      toast.error(data.error ?? "Não foi possível atualizar o status do usuário.");
+      return;
+    }
+
+    await fetchUsers();
+    toast.success("Status do usuário atualizado.");
+  }
+
+  async function handleDelete() {
+    if (!deletingUser) return;
+
+    const response = await fetch(`/api/usuarios/${deletingUser.id}`, { method: "DELETE" });
+    const data = await response.json();
+
+    if (!response.ok) {
+      toast.error(data.error ?? "Não foi possível excluir o usuário.");
+      return;
+    }
+
+    await fetchUsers();
+    toast.success("Usuário excluído com sucesso.");
+  }
+
+  const columns: DataTableColumn<ApiUser>[] = [
     {
       id: "name",
       header: "Usuário",
       cell: (row) => (
         <div className="flex items-center gap-3">
           <Avatar size="sm">
-            <AvatarFallback>{initials(row.name)}</AvatarFallback>
+            {row.avatar_url && <AvatarImage src={row.avatar_url} alt={row.full_name} />}
+            <AvatarFallback>{initials(row.full_name)}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-medium">{row.name}</span>
+            <span className="font-medium">{row.full_name}</span>
             <span className="text-muted-foreground text-xs">{row.email}</span>
           </div>
         </div>
       ),
-      sortValue: (row) => row.name,
+      sortValue: (row) => row.full_name,
     },
     {
       id: "jobTitle",
       header: "Cargo",
-      cell: (row) => row.jobTitle,
-      sortValue: (row) => row.jobTitle,
+      cell: (row) => row.job_title ?? "—",
+      sortValue: (row) => row.job_title ?? "",
     },
     {
       id: "role",
       header: "Perfil",
-      cell: (row) => USER_ROLE_LABELS[row.role],
-      sortValue: (row) => USER_ROLE_LABELS[row.role],
+      cell: (row) => row.role?.name ?? "—",
+      sortValue: (row) => row.role?.name ?? "",
     },
     {
       id: "status",
       header: "Status",
       cell: (row) => (
-        <StatusBadge variant={USER_STATUS_VARIANTS[row.status]}>
-          {USER_STATUS_LABELS[row.status]}
+        <StatusBadge variant={PROFILE_STATUS_VARIANTS[row.status]}>
+          {PROFILE_STATUS_LABELS[row.status] ?? row.status}
         </StatusBadge>
       ),
     },
     {
+      id: "createdAt",
+      header: "Cadastro",
+      cell: (row) => formatDateTime(row.created_at),
+      sortValue: (row) => row.created_at,
+      className: "whitespace-nowrap",
+    },
+    {
       id: "lastLoginAt",
       header: "Último acesso",
-      cell: (row) => (row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "—"),
-      sortValue: (row) => row.lastLoginAt ?? "",
+      cell: (row) => (row.last_login_at ? formatDateTime(row.last_login_at) : "—"),
+      sortValue: (row) => row.last_login_at ?? "",
       className: "whitespace-nowrap",
     },
     {
       id: "actions",
       header: "Ações",
-      cell: (row) => (
-        <div className="flex justify-end gap-2" onClick={(event) => event.stopPropagation()}>
-          <Button size="sm" variant="outline" onClick={() => openPermissions(row)}>
-            <ShieldCheck />
-            Permissões
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
-            <Pencil />
-            Editar
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <MoreHorizontal />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {row.status !== "ativo" && (
-                <DropdownMenuItem onClick={() => setUserStatus(row.id, "ativo")}>
-                  <Unlock />
-                  Reativar
+      cell: (row) => {
+        const isSelf = row.id === currentUser?.id;
+        return (
+          <div className="flex justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+            <Button size="sm" variant="outline" onClick={() => openPermissions(row)}>
+              <ShieldCheck />
+              Permissões
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
+              <Pencil />
+              Editar
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <MoreHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!isSelf && row.status !== "active" && (
+                  <DropdownMenuItem onClick={() => handleSetStatus(row, "active")}>
+                    <Unlock />
+                    Reativar
+                  </DropdownMenuItem>
+                )}
+                {!isSelf && row.status !== "inactive" && (
+                  <DropdownMenuItem onClick={() => handleSetStatus(row, "inactive")}>
+                    <Lock />
+                    Inativar
+                  </DropdownMenuItem>
+                )}
+                {!isSelf && row.status !== "blocked" && (
+                  <DropdownMenuItem onClick={() => handleSetStatus(row, "blocked")}>
+                    <Lock />
+                    Bloquear
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => openResetPassword(row)}>
+                  <KeyRound />
+                  Resetar senha
                 </DropdownMenuItem>
-              )}
-              {row.status !== "inativo" && (
-                <DropdownMenuItem onClick={() => setUserStatus(row.id, "inativo")}>
-                  <Lock />
-                  Inativar
-                </DropdownMenuItem>
-              )}
-              {row.status !== "bloqueado" && (
-                <DropdownMenuItem onClick={() => setUserStatus(row.id, "bloqueado")}>
-                  <Lock />
-                  Bloquear
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => resetUserPassword(row.id)}>
-                <KeyRound />
-                Resetar senha
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={() => setDeletingUser(row)}>
-                <Trash2 />
-                Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
+                {!isSelf && (
+                  <DropdownMenuItem variant="destructive" onClick={() => setDeletingUser(row)}>
+                    <Trash2 />
+                    Excluir
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
       className: "text-right",
     },
   ];
 
-  const filters: DataTableFilter<User>[] = [
+  const filters: DataTableFilter<ApiUser>[] = [
     {
       id: "role",
       label: "Perfil",
-      options: Object.entries(USER_ROLE_LABELS).map(([value, label]) => ({ label, value })),
-      predicate: (row, value) => row.role === value,
+      options: Array.from(new Set(users.map((u) => u.role?.name).filter(Boolean))).map((name) => ({
+        label: name as string,
+        value: name as string,
+      })),
+      predicate: (row, value) => row.role?.name === value,
     },
     {
       id: "status",
       label: "Status",
-      options: Object.entries(USER_STATUS_LABELS).map(([value, label]) => ({ label, value })),
+      options: Object.entries(PROFILE_STATUS_LABELS).map(([value, label]) => ({ label, value })),
       predicate: (row, value) => row.status === value,
     },
   ];
@@ -223,18 +320,19 @@ export function UsersView() {
         getRowId={(row) => row.id}
         searchPlaceholder="Buscar por nome, e-mail ou cargo..."
         searchFn={(row, query) =>
-          row.name.toLowerCase().includes(query) ||
+          row.full_name.toLowerCase().includes(query) ||
           row.email.toLowerCase().includes(query) ||
-          row.jobTitle.toLowerCase().includes(query)
+          (row.job_title ?? "").toLowerCase().includes(query)
         }
         filters={filters}
-        emptyMessage="Nenhum usuário cadastrado."
+        emptyMessage={isLoading ? "Carregando usuários..." : "Nenhum usuário cadastrado."}
       />
 
       <UserFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         user={editingUser}
+        roles={roles}
         onSubmit={handleSubmit}
       />
 
@@ -242,16 +340,20 @@ export function UsersView() {
         open={permissionsOpen}
         onOpenChange={setPermissionsOpen}
         user={permissionsUser}
-        onSubmit={handlePermissionsSubmit}
+      />
+
+      <ResetPasswordDialog
+        open={resetPasswordOpen}
+        onOpenChange={setResetPasswordOpen}
+        user={resetPasswordUser}
+        onSubmit={handleResetPassword}
       />
 
       <ConfirmDeleteDialog
         open={Boolean(deletingUser)}
         onOpenChange={(open) => !open && setDeletingUser(undefined)}
-        onConfirm={() => {
-          if (deletingUser) deleteUser(deletingUser.id);
-        }}
-        itemLabel={deletingUser ? `o usuário ${deletingUser.name}` : undefined}
+        onConfirm={handleDelete}
+        itemLabel={deletingUser ? `o usuário ${deletingUser.full_name}` : undefined}
       />
     </div>
   );

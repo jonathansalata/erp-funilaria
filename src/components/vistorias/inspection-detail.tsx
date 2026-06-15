@@ -21,6 +21,7 @@ import { getEventsForEntity, mapEntityEventToTimelineEntry } from "@/lib/mock-da
 import { INSPECTION_STATUS_META, type Inspection } from "@/lib/mock-data/inspections";
 import type { ChecklistItem } from "@/lib/mock-data/service-orders-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { getClientSlug, getVehicleSlug } from "@/lib/slugs";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type InspectionDetailProps = {
@@ -42,6 +43,8 @@ export function InspectionDetail({ inspection }: InspectionDetailProps) {
   const [photos, setPhotos] = useState(inspection.photos);
 
   const storeEvents = useErpDataStore((state) => state.events);
+  const clients = useErpDataStore((state) => state.clients);
+  const vehicles = useErpDataStore((state) => state.vehicles);
   const client = getClientById(inspection.clientId);
   const vehicle = getVehicleById(inspection.vehicleId);
   const events = getEventsForEntity(storeEvents, "inspection", inspection.id).map(
@@ -112,7 +115,10 @@ export function InspectionDetail({ inspection }: InspectionDetailProps) {
             <CardContent className="flex flex-col gap-3 text-sm">
               {vehicle ? (
                 <>
-                  <Link href={`/veiculos/${vehicle.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/veiculos/${getVehicleSlug(vehicle, vehicles)}`}
+                    className="font-medium hover:underline"
+                  >
                     {getVehicleLabel(vehicle)}
                   </Link>
                   <p className="text-muted-foreground">Placa: {vehicle.plate}</p>
@@ -145,7 +151,10 @@ export function InspectionDetail({ inspection }: InspectionDetailProps) {
             <CardContent className="flex flex-col gap-1 text-sm">
               {client ? (
                 <>
-                  <Link href={`/clientes/${client.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/clientes/${getClientSlug(client, clients)}`}
+                    className="font-medium hover:underline"
+                  >
                     {client.name}
                   </Link>
                   <p className="text-muted-foreground">{client.document}</p>

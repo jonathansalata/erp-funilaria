@@ -23,6 +23,7 @@ import {
 import { VehicleEditDialog } from "@/components/veiculos/vehicle-edit-dialog";
 import type { Client } from "@/lib/mock-data/clients";
 import { canDeleteVehicle, getVehicleSummary } from "@/lib/mock-data/crm";
+import { getVehicleSlug } from "@/lib/slugs";
 import type { Inspection } from "@/lib/mock-data/inspections";
 import type { Quote } from "@/lib/mock-data/quotes-data";
 import type { ServiceOrder } from "@/lib/mock-data/service-orders-data";
@@ -140,7 +141,9 @@ export function VehiclesListTable({
             }
           />
           <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-            <DropdownMenuItem onClick={() => router.push(`/veiculos/${vehicle.id}`)}>
+            <DropdownMenuItem
+              onClick={() => router.push(`/veiculos/${getVehicleSlug(vehicle, vehicles)}`)}
+            >
               <Eye />
               Visualizar
             </DropdownMenuItem>
@@ -204,7 +207,7 @@ export function VehiclesListTable({
           getClientName(vehicle.clientId).toLowerCase().includes(query)
         }
         filters={filters}
-        onRowClick={(vehicle) => router.push(`/veiculos/${vehicle.id}`)}
+        onRowClick={(vehicle) => router.push(`/veiculos/${getVehicleSlug(vehicle, vehicles)}`)}
         emptyMessage="Nenhum veículo encontrado."
       />
 

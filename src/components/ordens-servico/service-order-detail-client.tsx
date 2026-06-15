@@ -35,6 +35,7 @@ import {
   type ServiceOrderStatus,
 } from "@/lib/mock-data/service-orders-data";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { getClientSlug, getVehicleSlug } from "@/lib/slugs";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { buildDocumentWhatsappMessage, openWhatsapp } from "@/lib/whatsapp";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -66,6 +67,8 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
   const isEditable = status !== "entregue" && status !== "cancelado";
 
   const storeEvents = useErpDataStore((state) => state.events);
+  const clients = useErpDataStore((state) => state.clients);
+  const vehicles = useErpDataStore((state) => state.vehicles);
   const client = getClientById(order.clientId);
   const vehicle = getVehicleById(order.vehicleId);
   const total = calculateServiceOrderTotal(currentOrder.items);
@@ -297,7 +300,10 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
             <CardContent className="flex flex-col gap-1 text-sm">
               {client ? (
                 <>
-                  <Link href={`/clientes/${client.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/clientes/${getClientSlug(client, clients)}`}
+                    className="font-medium hover:underline"
+                  >
                     {client.name}
                   </Link>
                   <p className="text-muted-foreground">{client.document}</p>
@@ -317,7 +323,10 @@ export function ServiceOrderDetailClient({ order }: ServiceOrderDetailClientProp
             <CardContent className="flex flex-col gap-1 text-sm">
               {vehicle ? (
                 <>
-                  <Link href={`/veiculos/${vehicle.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/veiculos/${getVehicleSlug(vehicle, vehicles)}`}
+                    className="font-medium hover:underline"
+                  >
                     {getVehicleLabel(vehicle)}
                   </Link>
                   <p className="text-muted-foreground">Placa: {vehicle.plate}</p>

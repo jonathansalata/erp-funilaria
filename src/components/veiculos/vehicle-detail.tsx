@@ -49,6 +49,7 @@ import {
   getVehicleLabel,
   type Vehicle,
 } from "@/lib/mock-data/vehicles";
+import { getClientSlug } from "@/lib/slugs";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
@@ -72,6 +73,7 @@ export function VehicleDetail({
   events: storeEvents,
 }: VehicleDetailProps) {
   const router = useRouter();
+  const clients = useErpDataStore((state) => state.clients);
   const changeVehicleStatus = useErpDataStore((state) => state.changeVehicleStatus);
   const deleteVehicle = useErpDataStore((state) => state.deleteVehicle);
 
@@ -115,7 +117,7 @@ export function VehicleDetail({
         code={vehicle.code}
         status={{ label: statusMeta.label, variant: statusMeta.variant }}
         description={`Placa: ${vehicle.plate}`}
-        backHref={client ? `/clientes/${client.id}` : "/veiculos"}
+        backHref={client ? `/clientes/${getClientSlug(client, clients)}` : "/veiculos"}
         actions={
           <>
             <DocumentActions onExportPdf={handleExportPdf} onPrint={handlePrint} />
@@ -378,7 +380,10 @@ export function VehicleDetail({
             <CardContent className="flex flex-col gap-1 text-sm">
               {client ? (
                 <>
-                  <Link href={`/clientes/${client.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/clientes/${getClientSlug(client, clients)}`}
+                    className="font-medium hover:underline"
+                  >
                     {client.name}
                   </Link>
                   <p className="text-muted-foreground">{client.document}</p>
@@ -428,7 +433,7 @@ export function VehicleDetail({
         onConfirm={() => {
           deleteVehicle(vehicle.id);
           toast.success("Veículo excluído com sucesso.");
-          router.push(client ? `/clientes/${client.id}` : "/veiculos");
+          router.push(client ? `/clientes/${getClientSlug(client, clients)}` : "/veiculos");
         }}
         itemLabel={`o veículo ${vehicle.plate}`}
       />

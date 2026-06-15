@@ -32,6 +32,7 @@ import {
 import { buildQuotePdf } from "@/lib/pdf/quote-pdf";
 import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
 import { getVehicleById, getVehicleLabel } from "@/lib/mock-data/vehicles";
+import { getClientSlug, getVehicleSlug } from "@/lib/slugs";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { buildDocumentWhatsappMessage, openWhatsapp } from "@/lib/whatsapp";
 import { useErpDataStore } from "@/stores/erp-data-store";
@@ -51,6 +52,8 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
   const isEditable = status === "rascunho" || status === "enviado" || status === "em_negociacao";
 
   const storeEvents = useErpDataStore((state) => state.events);
+  const clients = useErpDataStore((state) => state.clients);
+  const vehicles = useErpDataStore((state) => state.vehicles);
   const client = getClientById(currentQuote.clientId);
   const vehicle = getVehicleById(currentQuote.vehicleId);
   const totals = calculateQuoteTotal(currentQuote.items);
@@ -229,7 +232,10 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
             <CardContent className="flex flex-col gap-1 text-sm">
               {client ? (
                 <>
-                  <Link href={`/clientes/${client.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/clientes/${getClientSlug(client, clients)}`}
+                    className="font-medium hover:underline"
+                  >
                     {client.name}
                   </Link>
                   <p className="text-muted-foreground">{client.document}</p>
@@ -249,7 +255,10 @@ export function QuoteDetailClient({ quote }: QuoteDetailClientProps) {
             <CardContent className="flex flex-col gap-1 text-sm">
               {vehicle ? (
                 <>
-                  <Link href={`/veiculos/${vehicle.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/veiculos/${getVehicleSlug(vehicle, vehicles)}`}
+                    className="font-medium hover:underline"
+                  >
                     {getVehicleLabel(vehicle)}
                   </Link>
                   <p className="text-muted-foreground">Placa: {vehicle.plate}</p>

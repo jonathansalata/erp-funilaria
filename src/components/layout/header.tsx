@@ -6,7 +6,7 @@ import { Bell, Menu, Search } from "lucide-react";
 
 import { NAV_GROUPS } from "@/lib/constants/navigation";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +42,16 @@ function initials(name: string): string {
 
 export function Header() {
   const pathname = usePathname();
-  const { profile, signOut } = useAuth();
+  const { user, profile, roleName, signOut } = useAuth();
+
+  // TODO(BLOCO 41 - diagnóstico, remover)
+  console.log("[BLOCO41][header] render", {
+    pathname,
+    "auth.user.id": user?.id ?? null,
+    "profile.id": profile?.id ?? null,
+    "profile.full_name": profile?.full_name ?? null,
+    roleName,
+  });
 
   return (
     <header className="bg-background border-border sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:px-6">
@@ -111,6 +120,9 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>
             <Avatar size="sm">
+              {profile?.avatar_url && (
+                <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+              )}
               <AvatarFallback>{profile ? initials(profile.full_name) : "?"}</AvatarFallback>
             </Avatar>
             <span className="hidden text-sm font-medium sm:inline">{profile?.full_name}</span>

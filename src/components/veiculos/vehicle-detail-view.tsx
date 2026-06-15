@@ -3,6 +3,7 @@
 import { notFound } from "next/navigation";
 
 import { VehicleDetail } from "@/components/veiculos/vehicle-detail";
+import { findVehicleBySlug } from "@/lib/slugs";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type VehicleDetailViewProps = {
@@ -11,7 +12,8 @@ type VehicleDetailViewProps = {
 
 export function VehicleDetailView({ id }: VehicleDetailViewProps) {
   const hasHydrated = useErpDataStore((state) => state.hasHydrated);
-  const vehicle = useErpDataStore((state) => state.vehicles.find((item) => item.id === id));
+  const vehicles = useErpDataStore((state) => state.vehicles);
+  const vehicle = findVehicleBySlug(vehicles, id);
   const client = useErpDataStore((state) =>
     state.clients.find((item) => item.id === vehicle?.clientId),
   );

@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
+import { PROFILE_STATUS_LABELS, PROFILE_STATUS_VARIANTS } from "@/lib/auth/status";
 import {
   MODULE_KEYS,
   MODULE_LABELS,
@@ -28,18 +36,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/utils";
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "Ativo",
-  inactive: "Inativo",
-  blocked: "Bloqueado",
-};
-
-const STATUS_VARIANTS: Record<string, "success" | "default" | "destructive"> = {
-  active: "success",
-  inactive: "default",
-  blocked: "destructive",
-};
-
 function initials(name: string): string {
   return name
     .split(" ")
@@ -51,13 +47,22 @@ function initials(name: string): string {
 
 /** Perfil do usuário autenticado (Fase 3.3 — Supabase Auth + `profiles`). */
 export function ProfileView() {
-  const { profile, roleName, isLoading, refreshProfile } = useAuth();
+  const { user, profile, roleName, isLoading, refreshProfile } = useAuth();
   const { permissions, can } = usePermissions();
 
   const [phone, setPhone] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null);
+
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   if (profile && profile.id !== loadedProfileId) {
     setLoadedProfileId(profile.id);
@@ -69,7 +74,7 @@ export function ProfileView() {
     return null;
   }
 
-  if (!profile) {
+  if (!profile || !user) {
     return (
       <div className="flex flex-col gap-6">
         <h1 className="font-heading text-2xl font-semibold">Meu perfil</h1>
@@ -96,6 +101,105 @@ export function ProfileView() {
     toast.success("Perfil atualizado com sucesso.");
   }
 
+  async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !user) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    const supabase = createClient();
+    const path = `${user.id}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true, contentType: file.type });
+
+    if (uploadError) {
+      setIsUploadingAvatar(false);
+      toast.error("Não foi possível enviar a foto.");
+      return;
+    }
+
+    const { data: publicUrl } = supabase.storage.from("avatars").getPublicUrl(path);
+    const avatarUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
+
+    const { error: rpcError } = await supabase.rpc("fn_update_my_avatar", {
+      p_avatar_url: avatarUrl,
+    });
+    setIsUploadingAvatar(false);
+
+    if (rpcError) {
+      toast.error("Não foi possível atualizar a foto de perfil.");
+      return;
+    }
+
+    await refreshProfile();
+    toast.success("Foto de perfil atualizada.");
+  }
+
+  async function handleRemoveAvatar() {
+    if (!user) return;
+    setIsUploadingAvatar(true);
+    const supabase = createClient();
+
+    await supabase.storage.from("avatars").remove([`${user.id}.jpg`]);
+
+    const { error } = await supabase.rpc("fn_update_my_avatar", { p_avatar_url: null });
+    setIsUploadingAvatar(false);
+
+    if (error) {
+      toast.error("Não foi possível remover a foto de perfil.");
+      return;
+    }
+
+    await refreshProfile();
+    toast.success("Foto de perfil removida.");
+  }
+
+  async function handleChangePassword() {
+    if (!profile) return;
+    if (newPassword.length < 8) {
+      toast.error("A nova senha deve ter no mínimo 8 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    const supabase = createClient();
+
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: profile.email,
+      password: currentPassword,
+    });
+
+    if (reauthError) {
+      setIsChangingPassword(false);
+      toast.error("Senha atual incorreta.");
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setIsChangingPassword(false);
+
+    if (error) {
+      toast.error("Não foi possível alterar a senha.");
+      return;
+    }
+
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    toast.success("Senha alterada com sucesso.");
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -110,6 +214,9 @@ export function ProfileView() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex items-center gap-4">
             <Avatar size="lg">
+              {profile.avatar_url && (
+                <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+              )}
               <AvatarFallback>{initials(profile.full_name)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col gap-1">
@@ -117,11 +224,37 @@ export function ProfileView() {
               <span className="text-muted-foreground text-sm">{profile.email}</span>
               <div className="flex flex-wrap items-center gap-2">
                 {roleName && <StatusBadge>{roleName}</StatusBadge>}
-                <StatusBadge variant={STATUS_VARIANTS[profile.status]}>
-                  {STATUS_LABELS[profile.status] ?? profile.status}
+                <StatusBadge variant={PROFILE_STATUS_VARIANTS[profile.status]}>
+                  {PROFILE_STATUS_LABELS[profile.status] ?? profile.status}
                 </StatusBadge>
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isUploadingAvatar}
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              {isUploadingAvatar ? "Enviando..." : "Alterar Foto"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isUploadingAvatar || !profile.avatar_url}
+              onClick={handleRemoveAvatar}
+            >
+              Remover Foto
+            </Button>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -150,6 +283,64 @@ export function ProfileView() {
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Segurança</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="current-password">Senha atual</Label>
+              <InputGroup>
+                <InputGroupInput
+                  id="current-password"
+                  type={showPasswords ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    type="button"
+                    size="icon-sm"
+                    aria-label={showPasswords ? "Ocultar senhas" : "Mostrar senhas"}
+                    onClick={() => setShowPasswords((value) => !value)}
+                  >
+                    {showPasswords ? <EyeOff /> : <Eye />}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-password">Nova senha</Label>
+              <Input
+                id="new-password"
+                type={showPasswords ? "text" : "password"}
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="confirm-password">Confirmar senha</Label>
+              <Input
+                id="confirm-password"
+                type={showPasswords ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+              {isChangingPassword ? "Salvando..." : "Alterar senha"}
             </Button>
           </div>
         </CardContent>

@@ -1397,6 +1397,7 @@ export type Database = {
           full_name: string;
           id: string;
           job_title: string | null;
+          last_login_at: string | null;
           must_change_password: boolean;
           organization_id: string;
           phone: string | null;
@@ -1414,6 +1415,7 @@ export type Database = {
           full_name: string;
           id: string;
           job_title?: string | null;
+          last_login_at?: string | null;
           must_change_password?: boolean;
           organization_id: string;
           phone?: string | null;
@@ -1431,6 +1433,7 @@ export type Database = {
           full_name?: string;
           id?: string;
           job_title?: string | null;
+          last_login_at?: string | null;
           must_change_password?: boolean;
           organization_id?: string;
           phone?: string | null;
@@ -2750,6 +2753,10 @@ export type Database = {
         Args: { p_action: string; p_module: string };
         Returns: boolean;
       };
+      fn_list_roles: {
+        Args: never;
+        Returns: { id: string; name: string }[];
+      };
       fn_is_overdue: {
         Args: { p_due_date: string; p_status: string };
         Returns: boolean;
@@ -2782,6 +2789,34 @@ export type Database = {
         Args: { p_stage_id: string; p_vehicle_id: string };
         Returns: undefined;
       };
+      fn_touch_my_last_login: { Args: never; Returns: undefined };
+      fn_update_my_avatar: {
+        Args: { p_avatar_url: string | null };
+        Returns: {
+          avatar_url: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          email: string;
+          full_name: string;
+          id: string;
+          job_title: string | null;
+          last_login_at: string | null;
+          must_change_password: boolean;
+          organization_id: string;
+          phone: string | null;
+          role_id: string | null;
+          status: string;
+          theme_preference: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "profiles";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       fn_update_my_profile: {
         Args: { p_job_title: string; p_phone: string };
         Returns: {
@@ -2793,6 +2828,7 @@ export type Database = {
           full_name: string;
           id: string;
           job_title: string | null;
+          last_login_at: string | null;
           must_change_password: boolean;
           organization_id: string;
           phone: string | null;

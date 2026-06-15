@@ -28,6 +28,7 @@ import {
   type ClientStatus,
 } from "@/lib/mock-data/clients";
 import { canDeleteClient, getClientSummary } from "@/lib/mock-data/crm";
+import { getClientSlug } from "@/lib/slugs";
 import type { Quote } from "@/lib/mock-data/quotes-data";
 import type { ServiceOrder } from "@/lib/mock-data/service-orders-data";
 import type { Receivable } from "@/lib/mock-data/financeiro";
@@ -146,7 +147,9 @@ export function ClientsListTable({
             }
           />
           <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-            <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>
+            <DropdownMenuItem
+              onClick={() => router.push(`/clientes/${getClientSlug(client, clients)}`)}
+            >
               <Eye />
               Visualizar
             </DropdownMenuItem>
@@ -250,7 +253,7 @@ export function ClientsListTable({
           client.phone.toLowerCase().includes(query)
         }
         filters={filters}
-        onRowClick={(client) => router.push(`/clientes/${client.id}`)}
+        onRowClick={(client) => router.push(`/clientes/${getClientSlug(client, clients)}`)}
         emptyMessage="Nenhum cliente encontrado."
       />
 

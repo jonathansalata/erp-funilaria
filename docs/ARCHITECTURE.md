@@ -6,6 +6,37 @@
 
 ## Changelog
 
+- **v1.21** — Bloco 40 (correções de UX, identificadores e CRUDs, 2026-06-15): select "Perfil"
+  do formulário de usuário deixa de exibir o `role_id` (UUID) após a seleção (fix via
+  `Select.Value` com `children` em forma de função); célula "Usuário" da listagem não repete
+  mais "Último acesso" (já existe coluna dedicada) e ganhou a coluna "Cadastro"
+  (`profiles.created_at`, `dd/MM/yyyy HH:mm`, sortável) — ordem final: Usuário | Cargo | Perfil
+  | Status | Cadastro | Último acesso | Ações. Avatar de perfil (Bloco 39) re-verificado
+  ponta-a-ponta contra o Supabase real — sem alterações de código. Novo
+  `src/lib/slugs.ts` + `slugify()` (`src/lib/utils.ts`) substituem os códigos internos
+  (`cli-001`/`vei-002`) nas URLs de `/clientes/[id]` e `/veiculos/[id]` por slugs amigáveis
+  (nome do cliente, placa do veículo, com sufixo de desambiguação em duplicatas), mantendo o
+  `id` interno como fallback de lookup. Corrigido bug crítico no
+  `ClientEditDialog`/`VehicleEditDialog`: Dialog controlado externamente não sincronizava
+  `values` na abertura (mesmo padrão de causa raiz do Bloco 39), deixando o formulário de
+  edição de cliente/veículo vazio. Sem novas migrations. Ver
+  [DECISIONS.md#bloco-40--correções-de-ux-identificadores-e-cruds-2026-06-15](../DECISIONS.md#bloco-40--correções-de-ux-identificadores-e-cruds-2026-06-15).
+- **v1.20** — Bloco 39 (gestão de usuários — finalização para produção, 2026-06-15): módulo
+  "Usuários" deixa de usar o store mock e passa a operar 100% sobre Supabase via novas rotas
+  `src/app/api/usuarios/**` (service role + `getUsuariosPermissions()`, contornando o mesmo
+  bloqueio de RLS de `fn_current_org_id()`/`fn_current_role_id()` já documentado na Fase 3.3
+  com funções `SECURITY DEFINER`). Migration `0013_users_management.sql` adiciona
+  `profiles.last_login_at`, `fn_touch_my_last_login()`, `fn_update_my_avatar()`,
+  `fn_list_roles()` e o bucket de Storage `avatars` (público, path `{user_id}.jpg`, policies
+  por usuário). Novidades: criação de usuário com senha (login imediato, sem convite por
+  e-mail), reset de senha administrativo (`/api/usuarios/[id]/reset-password`), avatar de
+  perfil (upload/remoção em `profile-view.tsx`, refletido em Header/listagem), "Último acesso"
+  na listagem de usuários, card "Segurança" em "Meu Perfil" para troca de senha própria, e
+  `AuthProvider` agora encerra a sessão automaticamente se `profile.status !== "active"`
+  (cobre inativação/bloqueio de sessões já abertas). Permissões granulares
+  (`user_permission_overrides`) passam a ser persistidas via API, mas ainda não são
+  consumidas por `fn_get_my_permissions()` (pendência registrada). Ver
+  [DECISIONS.md#bloco-39--gestão-de-usuários-finalização-para-produção-2026-06-15](../DECISIONS.md#bloco-39--gestão-de-usuários-finalização-para-produção-2026-06-15).
 - **v1.19** — Bloco 38 (auditoria por evidência: menu do usuário e Templates de Checklist,
   2026-06-14): reprodução em navegador real (CDP) confirmou dois bugs independentes não
   resolvidos pelo Bloco 37. (1) `src/components/layout/header.tsx` — `DropdownMenuLabel` fora de

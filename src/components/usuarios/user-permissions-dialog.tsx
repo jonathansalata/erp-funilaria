@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,47 +26,86 @@ import {
   MODULE_LABELS,
   PERMISSION_ACTIONS,
   PERMISSION_ACTION_LABELS,
+  emptyPermissionMatrix,
   type PermissionMatrix,
-  type User,
 } from "@/lib/mock-data/users";
+import type { ApiUser } from "@/lib/auth/usuarios-types";
 
 type UserPermissionsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  user?: User;
-  onSubmit: (permissions: PermissionMatrix) => void;
+  user?: ApiUser;
 };
 
-export function UserPermissionsDialog({
-  open,
-  onOpenChange,
-  user,
-  onSubmit,
-}: UserPermissionsDialogProps) {
-  const [matrix, setMatrix] = useState<PermissionMatrix | undefined>(user?.permissions);
-  const [wasOpen, setWasOpen] = useState(open);
+export function UserPermissionsDialog({ open, onOpenChange, user }: UserPermissionsDialogProps) {
+  const [matrix, setMatrix] = useState<PermissionMatrix>(emptyPermissionMatrix());
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) setMatrix(user?.permissions);
+  if (open && user && user.id !== loadedUserId) {
+    setLoadedUserId(user.id);
+    setMatrix(emptyPermissionMatrix());
+    setIsLoading(true);
+
+    fetch(`/api/usuarios/${user.id}/permissions`)
+      .then((res) => res.json())
+      .then((data) => {
+        const overrides = (data.overrides ?? []) as {
+          module: string;
+          action: string;
+          allowed: boolean;
+        }[];
+        setMatrix((current) => {
+          const next = emptyPermissionMatrix();
+          for (const moduleKey of MODULE_KEYS) {
+            next[moduleKey] = { ...current[moduleKey] };
+          }
+          for (const override of overrides) {
+            const moduleKey = override.module as keyof PermissionMatrix;
+            if (next[moduleKey] && override.action in next[moduleKey]) {
+              (next[moduleKey] as Record<string, boolean>)[override.action] = override.allowed;
+            }
+          }
+          return next;
+        });
+      })
+      .catch(() => toast.error("Não foi possível carregar as permissões."))
+      .finally(() => setIsLoading(false));
+  }
+
+  if (!open && loadedUserId !== null) {
+    setLoadedUserId(null);
   }
 
   function toggle(
     moduleKey: (typeof MODULE_KEYS)[number],
     action: (typeof PERMISSION_ACTIONS)[number],
   ) {
-    setMatrix((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        [moduleKey]: { ...current[moduleKey], [action]: !current[moduleKey][action] },
-      };
-    });
+    setMatrix((current) => ({
+      ...current,
+      [moduleKey]: { ...current[moduleKey], [action]: !current[moduleKey][action] },
+    }));
   }
 
-  function handleSubmit() {
-    if (!matrix) return;
-    onSubmit(matrix);
+  async function handleSubmit() {
+    if (!user) return;
+
+    setIsSaving(true);
+    const response = await fetch(`/api/usuarios/${user.id}/permissions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matrix }),
+    });
+    setIsSaving(false);
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      toast.error(data.error ?? "Não foi possível salvar as permissões.");
+      return;
+    }
+
+    toast.success("Permissões atualizadas com sucesso.");
     onOpenChange(false);
   }
 
@@ -73,9 +113,9 @@ export function UserPermissionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Permissões — {user?.name}</DialogTitle>
+          <DialogTitle>Permissões — {user?.full_name}</DialogTitle>
           <DialogDescription>
-            Permissões granulares por módulo. Estrutura preparada para futuro RBAC real.
+            Permissões granulares por módulo, aplicadas como sobreposição ao perfil do usuário.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,7 +140,8 @@ export function UserPermissionsDialog({
                   {PERMISSION_ACTIONS.map((action) => (
                     <TableCell key={action} className="text-center">
                       <Checkbox
-                        checked={matrix?.[moduleKey]?.[action] ?? false}
+                        checked={matrix[moduleKey]?.[action] ?? false}
+                        disabled={isLoading}
                         onCheckedChange={() => toggle(moduleKey, action)}
                       />
                     </TableCell>
@@ -115,7 +156,9 @@ export function UserPermissionsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit}>Salvar permissões</Button>
+          <Button onClick={handleSubmit} disabled={isLoading || isSaving}>
+            {isSaving ? "Salvando..." : "Salvar permissões"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -23,6 +23,16 @@ export function formatRelativeTime(iso: string): string {
   return formatDistanceToNow(new Date(iso), { locale: ptBR, addSuffix: true });
 }
 
+/** Converte texto livre em slug amigável para URLs (sem acentos, minúsculo, hifenizado). */
+export function slugify(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 /** Gera e baixa um arquivo CSV a partir de cabeçalhos e linhas de dados. */
 export function downloadCsv(
   filename: string,

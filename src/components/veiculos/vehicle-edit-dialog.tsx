@@ -76,12 +76,19 @@ const EMPTY_VALUES: VehicleFormValues = {
 export function VehicleEditDialog({ open, onOpenChange, vehicle }: VehicleEditDialogProps) {
   const updateVehicleDetails = useErpDataStore((state) => state.updateVehicleDetails);
   const [values, setValues] = useState<VehicleFormValues>(EMPTY_VALUES);
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
 
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
-      setValues(vehicle ? vehicleToFormValues(vehicle) : EMPTY_VALUES);
+  // O Dialog é controlado externamente (`setEditingVehicle(vehicle)`), então `onOpenChange` do
+  // Base UI só dispara ao fechar — nunca quando o pai abre o modal. Sincronizar `values` durante
+  // a renderização (mesmo padrão de `user-form-dialog.tsx`) garante que o formulário sempre
+  // carregue os dados do `vehicle` atual a cada abertura.
+  const dialogKey = open ? (vehicle?.id ?? null) : null;
+
+  if (dialogKey !== syncedKey) {
+    setSyncedKey(dialogKey);
+    if (dialogKey && vehicle) {
+      setValues(vehicleToFormValues(vehicle));
     }
-    onOpenChange(nextOpen);
   }
 
   if (!vehicle) return null;
@@ -111,7 +118,7 @@ export function VehicleEditDialog({ open, onOpenChange, vehicle }: VehicleEditDi
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar veículo</DialogTitle>

@@ -46,6 +46,8 @@ export function LoginForm() {
         return;
       }
 
+      void supabase.rpc("fn_touch_my_last_login");
+
       const redirectTo = searchParams.get("redirectTo") ?? "/";
       router.push(redirectTo);
       router.refresh();

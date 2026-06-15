@@ -3,6 +3,170 @@
 Registro de decisões e ajustes tomados durante a implementação que se desviam ou complementam o
 que está descrito em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Bloco 40 — Correções de UX, Identificadores e CRUDs (2026-06-15)
+
+**1. "Último acesso" duplicado** (`src/components/usuarios/users-view.tsx`): a célula
+"Usuário" exibia `Último acesso: dd/mm/yyyy hh:mm` sob o nome/e-mail, redundante com a coluna
+dedicada "Último acesso". Removida a linha duplicada da célula; a célula "Usuário" agora mostra
+apenas nome + e-mail. O espaço foi aproveitado para a nova coluna "Cadastro" (item 7).
+
+**2. Select de Perfil exibindo UUID** (`src/components/usuarios/user-form-dialog.tsx`):
+**causa raiz** — o Base UI `Select.Value` não consegue resolver o label de um item renderizado
+dentro de um `Portal` lazy-mounted; sem `children` como função, ele cai no valor bruto
+(`role_id`, um UUID). **Correção**: `SelectValue` agora recebe `children` como função
+`(value) => roles.find((role) => role.id === value)?.name ?? "Selecione o perfil"`, usando a
+prop `roles: RoleOption[]` já existente. `role_id` continua sendo o único valor persistido;
+nenhuma mudança nos fluxos de listagem/criação/edição além da exibição.
+
+**3. Foto de perfil (avatar)**: re-verificado end-to-end contra o projeto Supabase real
+(bucket `avatars`, RPCs `fn_update_my_avatar`/`fn_list_roles`/`fn_touch_my_last_login`,
+policies de Storage, upload/`getPublicUrl`/remoção, `profiles.avatar_url`) — todos os passos
+da implementação do Bloco 39 (`profile-view.tsx`, `header.tsx`, migration
+`0013_users_management.sql`) funcionam corretamente. **Nenhuma alteração de código foi
+necessária**; este item já estava implementado e foi apenas confirmado.
+
+**4/5. URLs amigáveis para clientes e veículos** (novo `src/lib/slugs.ts` +
+`slugify()` em `src/lib/utils.ts`): rotas `/clientes/[id]` e `/veiculos/[id]` deixam de expor
+os códigos internos (`cli-001`, `vei-002`) nas URLs geradas pela aplicação.
+
+- `getClientSlug(client, clients)` — `slugify(client.name)`; em caso de nomes duplicados,
+  sufixo `-{code}` (ex.: `/clientes/mariana-costa-cli-000001`).
+- `getVehicleSlug(vehicle, vehicles)` — placa normalizada (ex.: `/veiculos/abc1d23`); em caso
+  de placas duplicadas, prefixo `marca-modelo-` (ex.: `/veiculos/honda-civic-abc1d23`).
+- `findClientBySlug`/`findVehicleBySlug` resolvem o slug para a entidade e, como fallback,
+  também aceitam o `id` interno antigo (`cli-001`/`vei-002`) — preserva compatibilidade com
+  links já existentes/salvos sem expor apenas o código em links novos.
+- As páginas `src/app/(dashboard)/clientes/[id]/page.tsx` e
+  `src/app/(dashboard)/veiculos/[id]/page.tsx` já recebiam `id` como parâmetro genérico de
+  rota e o repassam a `ClientDetailView`/`VehicleDetailView`, que agora resolvem via
+  `findClientBySlug`/`findVehicleBySlug` — nenhuma mudança de rota foi necessária.
+- Todos os pontos que geram links para `/clientes/${...}` e `/veiculos/${...}`
+  (`clients-list-table.tsx`, `vehicles-list-table.tsx`, `client-detail.tsx`,
+  `vehicle-detail.tsx`, `new-client-form.tsx`, `quote-detail-client.tsx`,
+  `service-order-detail-client.tsx`, `inspection-detail.tsx`) foram atualizados para usar
+  `getClientSlug`/`getVehicleSlug`.
+- **Erro de carregamento de `/veiculos/vei-002`**: a causa raiz era a combinação do bug 6
+  (dialog de edição não sincronizava dados, já corrigido) com o uso do `code`/`id` interno cru
+  na URL; com `findVehicleBySlug` aceitando tanto o slug novo quanto o `id` antigo como
+  fallback, e o dialog corrigido, o carregamento da página de detalhe do veículo passa a
+  funcionar normalmente.
+
+**6. Edição de Cliente não carrega dados** (`src/components/clientes/client-edit-dialog.tsx`):
+**causa raiz** — mesmo padrão já corrigido em `user-form-dialog.tsx` no Bloco 39: o `Dialog` é
+controlado externamente (`open={Boolean(editingClient)}`), e no Base UI o callback
+`onOpenChange` só dispara ao **fechar**, nunca ao abrir — então a sincronização de `values`
+feita dentro de `onOpenChange` nunca executava na abertura, deixando o formulário vazio.
+**Correção**: aplicado o padrão `dialogKey`/`syncedKey` — durante a renderização, se
+`dialogKey` (derivado de `open`/`client?.id`) diverge de `syncedKey`, `setValues(...)` é
+chamado com `clientToFormValues(client)` antes do próximo paint. O mesmo fix foi aplicado
+proativamente a `src/components/veiculos/vehicle-edit-dialog.tsx` (mesma causa raiz, mesmo
+padrão de Dialog controlado).
+
+**7. Coluna "Cadastro"** (`src/components/usuarios/users-view.tsx`): nova coluna entre
+"Status" e "Último acesso", usando `profiles.created_at` formatado com `formatDateTime`
+(`dd/MM/yyyy HH:mm`), sortável. Ordem final das colunas: Usuário | Cargo | Perfil | Status |
+Cadastro | Último acesso | Ações.
+
+**8. Melhoria visual da lista de usuários**: ver item 1 — célula "Usuário" agora mostra apenas
+nome (negrito) + e-mail (`text-muted-foreground text-xs`), sem informação de acesso repetida.
+
+**Sem novas migrations, sem mudanças de Storage/Auth** — itens 1, 2, 4–8 são puramente
+frontend (mock data store + componentes); item 3 não exigiu mudanças (já entregue no Bloco 39).
+
+## Bloco 39 — Gestão de Usuários: Finalização para Produção (2026-06-15)
+
+**Contexto**: o módulo "Usuários" (`src/components/usuarios/*`) ainda operava 100% sobre o
+store mock Zustand (`USERS` em `src/lib/mock-data/users.ts`), enquanto "Meu Perfil"
+(`profile-view.tsx`) e o `AuthProvider` já usavam Supabase Auth real (Fase 3.3+). Este bloco
+fecha essa divergência: liga a tela de Usuários ao Supabase de ponta a ponta, adiciona criação
+de usuário com senha, reset de senha administrativo, avatar de perfil, "último acesso" e troca
+de senha própria — sem alterar layout e sem quebrar Auth/RBAC existentes.
+
+**Problema de fundo (RLS)**: `fn_current_org_id()`/`fn_current_role_id()` retornam `NULL`
+(sem Custom Access Token Hook configurado), então qualquer policy de RLS que dependa delas para
+acesso a "outros usuários" (`profiles`, `roles`, `role_permissions`) está efetivamente
+bloqueada. O padrão já estabelecido (Fase 3.3, `fn_get_my_permissions`/`fn_get_my_role_name`/
+`fn_update_my_profile`) contorna isso com funções `SECURITY DEFINER` que leem
+`profiles.role_id`/`organization_id` via `auth.uid()`. Este bloco estende o mesmo padrão:
+
+- Novas rotas administrativas `src/app/api/usuarios/**` usam `createAdminClient()` (service
+  role, já existente em `src/lib/supabase/admin.ts`), autorizadas por
+  `src/lib/auth/server-permissions.ts::getUsuariosPermissions()` — que por sua vez usa
+  `fn_get_my_permissions()` (já funcional, não depende de JWT claims) para checar
+  `usuarios.view|create|edit|delete`.
+- `fn_list_roles()` (nova, `SECURITY DEFINER`) expõe `roles` da organização do chamador para
+  popular o select "Perfil" do formulário de usuário, contornando o mesmo bloqueio de RLS.
+
+**Migration `supabase/migrations/0013_users_management.sql`**:
+
+- `profiles.last_login_at timestamptz` (nova coluna).
+- `fn_touch_my_last_login()` — `SECURITY DEFINER`, grava `now()` em `profiles.last_login_at`
+  do usuário autenticado; chamada (fire-and-forget) por `login-form.tsx` após
+  `signInWithPassword` bem-sucedido.
+- `fn_update_my_avatar(p_avatar_url text)` — `SECURITY DEFINER`, mesmo padrão de
+  `fn_update_my_profile`, atualiza `profiles.avatar_url` do usuário autenticado.
+- `fn_list_roles()` — `SECURITY DEFINER`, retorna `id, name` de `roles` da organização do
+  usuário autenticado (`deleted_at IS NULL`).
+- Bucket de Storage `avatars` (público) + policies em `storage.objects`: leitura pública;
+  `INSERT`/`UPDATE`/`DELETE` restritos ao próprio usuário via
+  `split_part(name, '.', 1) = auth.uid()::text` (path `{user_id}.jpg`).
+
+**Rotas administrativas (`src/app/api/usuarios/`)**:
+
+- `GET /api/usuarios` (`usuarios.view`) — lista `profiles` da organização com `role:roles(id,name)`.
+- `POST /api/usuarios` (`usuarios.create`) — cria usuário via
+  `admin.auth.admin.createUser({ email, password, email_confirm: true })` + insere `profiles`;
+  em erro no insert, faz rollback (`admin.auth.admin.deleteUser`). Senha definida no momento da
+  criação — usuário pode logar imediatamente, sem depender de e-mail de convite.
+- `PATCH /api/usuarios/[id]` (`usuarios.edit`) — atualiza dados cadastrais; se o e-mail mudou,
+  sincroniza `auth.users` (`updateUserById`) antes de gravar `profiles.email`.
+- `DELETE /api/usuarios/[id]` (`usuarios.delete`) — `admin.auth.admin.deleteUser` (cascata
+  remove `profiles` via FK); bloqueia auto-exclusão.
+- `POST /api/usuarios/[id]/status` (`usuarios.edit`) — define `active|inactive|blocked`;
+  `blocked` aplica `ban_duration: "876000h"` no Auth (impede novos logins), `active` remove o
+  ban (`ban_duration: "none"`); bloqueia alterar o próprio status.
+- `POST /api/usuarios/[id]/reset-password` (`usuarios.edit`) — `admin.auth.admin.updateUserById`
+  com nova senha (≥8 chars), usado pela ação "Resetar Senha" da listagem.
+- `GET/POST /api/usuarios/[id]/permissions` (`usuarios.view`/`edit`) — lê/grava
+  `user_permission_overrides` (upsert por `user_id, permission_id`) para o dialog
+  "Permissões". **Decisão**: `fn_get_my_permissions()`/`fn_has_permission()` **não** foram
+  alterados para consumir esses overrides (risco de regressão no RBAC fora do escopo
+  obrigatório); os dados ficam persistidos/auditáveis, mas ainda não afetam o cálculo efetivo
+  de permissões. Registrado como pendência.
+
+**Sessões de usuários inativados/bloqueados**: `src/components/providers/auth-provider.tsx`
+agora chama `signOut()` automaticamente se `profile.status !== "active"` após qualquer
+carregamento de perfil — cobre o caso em que um admin inativa/bloqueia um usuário que já está
+com sessão aberta (a revogação via `ban_duration` no Supabase Auth só impede _novos_ logins).
+
+**Frontend**:
+
+- `src/components/usuarios/users-view.tsx` — substituído `useErpDataStore` por
+  `fetch('/api/usuarios')`/`fetch('/api/usuarios/roles')`; coluna "Usuário" ganhou avatar real
+  (`AvatarImage`) e "Último acesso: dd/mm/yyyy hh:mm" discreto sob o e-mail; ações
+  Criar/Editar/Inativar/Bloquear/Reativar/Resetar senha/Excluir/Permissões todas via API; linha
+  do próprio usuário não exibe ações de status/exclusão.
+- `src/components/usuarios/user-form-dialog.tsx` — modo "Novo usuário" ganhou campos
+  Senha/Confirmar senha (obrigatórios, ≥8 chars, show/hide); select "Perfil" populado por
+  `fn_list_roles()`.
+- `src/components/usuarios/reset-password-dialog.tsx` (novo) — modal "Redefinir Senha"
+  (Nova senha/Confirmar senha, ≥8 chars, show/hide).
+- `src/components/usuarios/user-permissions-dialog.tsx` — passa a ler/gravar
+  `user_permission_overrides` via `/api/usuarios/[id]/permissions`.
+- `src/components/configuracoes/profile-view.tsx` — novo upload/remoção de avatar
+  (`supabase.storage.from('avatars')` + `fn_update_my_avatar`, bucket `avatars/{user_id}.jpg`)
+  e novo card "Segurança" para troca de senha própria (reautenticação via
+  `signInWithPassword` + `auth.updateUser({ password })`); `STATUS_LABELS`/`STATUS_VARIANTS`
+  extraídos para `src/lib/auth/status.ts` (compartilhados com `users-view.tsx`).
+- `src/components/layout/header.tsx` — avatar do usuário logado agora usa
+  `AvatarImage src={profile.avatar_url}`, com fallback de iniciais.
+
+**Tipos**: `src/types/database.types.ts` não pôde ser regenerado via `supabase gen types
+--linked` (offline); aplicadas edições manuais e localizadas: `profiles.last_login_at`
+(Row/Insert/Update) e as 3 novas funções (`fn_touch_my_last_login`, `fn_update_my_avatar`,
+`fn_list_roles`) em `Database["public"]["Functions"]`. Regenerar via CLI quando houver acesso
+ao projeto linkado.
+
 ## Bloco 38 — Auditoria por Evidência: Menu do Usuário e Templates de Checklist (2026-06-14)
 
 **Contexto**: o relatório do Bloco 37 não resolveu os problemas observados em produção. Validação

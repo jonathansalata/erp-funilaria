@@ -76,12 +76,19 @@ const EMPTY_VALUES: ClientFormFields = {
 export function ClientEditDialog({ open, onOpenChange, client }: ClientEditDialogProps) {
   const updateClient = useErpDataStore((state) => state.updateClient);
   const [values, setValues] = useState<ClientFormFields>(EMPTY_VALUES);
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
 
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
-      setValues(client ? clientToFormValues(client) : EMPTY_VALUES);
+  // O Dialog é controlado externamente (`setEditingClient(client)`), então `onOpenChange` do
+  // Base UI só dispara ao fechar — nunca quando o pai abre o modal. Sincronizar `values` durante
+  // a renderização (mesmo padrão de `user-form-dialog.tsx`) garante que o formulário sempre
+  // carregue os dados do `client` atual a cada abertura.
+  const dialogKey = open ? (client?.id ?? null) : null;
+
+  if (dialogKey !== syncedKey) {
+    setSyncedKey(dialogKey);
+    if (dialogKey && client) {
+      setValues(clientToFormValues(client));
     }
-    onOpenChange(nextOpen);
   }
 
   if (!client) return null;
@@ -130,7 +137,7 @@ export function ClientEditDialog({ open, onOpenChange, client }: ClientEditDialo
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar cliente</DialogTitle>

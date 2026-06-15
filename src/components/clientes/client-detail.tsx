@@ -53,6 +53,7 @@ import { calculateServiceOrderTotal } from "@/lib/mock-data/service-orders-data"
 import { buildClientPdf } from "@/lib/pdf/client-pdf";
 import { downloadPdf, printPdf } from "@/lib/pdf/pdf-utils";
 import { JOURNEY_STAGE_META, type Vehicle } from "@/lib/mock-data/vehicles";
+import { getVehicleSlug } from "@/lib/slugs";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
@@ -214,7 +215,9 @@ export function ClientDetail({ client }: ClientDetailProps) {
                       <TableRow
                         key={vehicle.id}
                         className="cursor-pointer"
-                        onClick={() => router.push(`/veiculos/${vehicle.id}`)}
+                        onClick={() =>
+                          router.push(`/veiculos/${getVehicleSlug(vehicle, storeVehicles)}`)
+                        }
                       >
                         <TableCell className="font-medium">{vehicle.plate}</TableCell>
                         <TableCell>{vehicle.brand}</TableCell>
@@ -252,7 +255,9 @@ export function ClientDetail({ client }: ClientDetailProps) {
                               onClick={(event) => event.stopPropagation()}
                             >
                               <DropdownMenuItem
-                                onClick={() => router.push(`/veiculos/${vehicle.id}`)}
+                                onClick={() =>
+                                  router.push(`/veiculos/${getVehicleSlug(vehicle, storeVehicles)}`)
+                                }
                               >
                                 <Eye />
                                 Ver

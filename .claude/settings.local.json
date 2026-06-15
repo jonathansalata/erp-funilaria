@@ -162,7 +162,21 @@
       "Bash(curl -s http://localhost:9333/json/version)",
       "Bash(curl -s http://localhost:3000/login -o /dev/null -w \"dev server: %{http_code}\\\\n\")",
       "Bash(curl -s \"http://localhost:9333/json\")",
-      "Bash(taskkill //F //IM chrome.exe)"
+      "Bash(taskkill //F //IM chrome.exe)",
+      "Bash(grep -iE \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -oE '^\\\\s+[a-z_]+: \\\\{$' /tmp/gen-types-clean.ts)",
+      "Bash(grep -oE '^\\\\s+[a-z_]+: \\\\{$' src/types/database.types.ts)",
+      "Bash(cd \"c:\\\\Users\\\\Jonathan\\\\Desktop\\\\ERP-Funilaria-11-06-2026\" && rm -f /tmp/gen-types.ts /tmp/gen-types-clean.ts /tmp/gen-types.err /tmp/gen-tables.txt /tmp/cur-tables.txt)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/login)",
+      "Bash(jobs -l)",
+      "Bash(curl -s -o /dev/null -w \"/login: %{http_code}\\\\n\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"/usuarios \\(no auth\\): %{http_code}\\\\n\" -L http://localhost:3000/usuarios)",
+      "Bash(curl -s -o /dev/null -w \"/configuracoes/perfil \\(no auth\\): %{http_code}\\\\n\" -L http://localhost:3000/configuracoes/perfil)",
+      "Bash(rm -f cookies.txt)",
+      "Bash(curl -s -c cookies.txt -o /dev/null http://localhost:3000/login)",
+      "Bash(node scripts/verify-bloco-39.mjs)",
+      "Bash(node scripts-tmp/verify-bloco-40.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp",

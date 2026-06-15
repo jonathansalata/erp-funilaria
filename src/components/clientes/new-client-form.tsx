@@ -21,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { ClientType } from "@/lib/mock-data/clients";
 import { FUEL_TYPE_LABELS, type FuelType } from "@/lib/mock-data/vehicles";
+import { getClientSlug } from "@/lib/slugs";
 import { useErpDataStore } from "@/stores/erp-data-store";
 
 type VehicleEntry = {
@@ -183,7 +184,7 @@ export function NewClientForm() {
     });
 
     toast.success("Cliente cadastrado com sucesso.");
-    router.push(`/clientes/${newClient.id}`);
+    router.push(`/clientes/${getClientSlug(newClient, useErpDataStore.getState().clients)}`);
   }
 
   return (
