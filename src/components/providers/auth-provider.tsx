@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
@@ -13,104 +13,118 @@ type AuthContextValue = {
   roleName: string | null;
   permissions: PermissionEntry[];
   isLoading: boolean;
+  profileError: string | null;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Bloco 44: o GoTrueClient (@supabase/auth-js) usa `navigator.locks` para coordenar
+// `getSession()`/refresh entre abas. Se uma aba travar com o lock preso (ex.: crash em
+// `error.tsx` no meio de uma chamada), novas chamadas a `getSession()`/`.from()`/`.rpc()`
+// (que dependem do token retornado por `getSession()`) ficam pendentes para sempre — sem
+// erro e sem rejeição. Sem um timeout, `isLoading` nunca vira `false` e `profile` nunca
+// é definido, mesmo com o `profile` já tendo sido carregado com sucesso anteriormente.
+const AUTH_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roleName, setRoleName] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // TODO(BLOCO 41 - diagnóstico, remover): instância única do AuthProvider?
-  // Loga mount/unmount para confirmar se o provider remonta ao navegar.
-  useEffect(() => {
-    console.log("[BLOCO41][auth-provider] MOUNT", { pathname });
-    return () => {
-      console.log("[BLOCO41][auth-provider] UNMOUNT", { pathname });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // TODO(BLOCO 41 - diagnóstico, remover): estado atual em cada navegação/render.
-  useEffect(() => {
-    console.log("[BLOCO41][auth-provider] STATE", {
-      pathname,
-      "auth.user.id": user?.id ?? null,
-      "profile.id": profile?.id ?? null,
-      "profile.full_name": profile?.full_name ?? null,
-      roleName,
-      isLoading,
-    });
-  }, [pathname, user, profile, roleName, isLoading]);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Carrega `profiles` + RBAC (papel e permissões) do usuário autenticado. Qualquer falha aqui
   // (Supabase indisponível, env vars ausentes, erro de rede/RPC) é tratada como "sem perfil" em
   // vez de propagar — uma exceção não tratada neste provider derrubaria toda a árvore do
   // dashboard (AuthProvider envolve `(dashboard)/layout.tsx` por completo) e cairia no
   // error boundary mais próximo (ou em `global-error.tsx`, na ausência de um).
+  //
+  // Bloco 42: falhas pontuais (erro de rede/RPC após o login inicial) NÃO sobrescrevem um
+  // `profile` já carregado com `null` — preserva-se o último perfil válido e expõe-se
+  // `profileError` para o Header diferenciar "carregando" / "erro" / "sem perfil".
   const loadProfileAndPermissions = useCallback(
-    async (currentUser: User | null, source: string) => {
-      // TODO(BLOCO 41 - diagnóstico, remover)
-      console.log("[BLOCO41][auth-provider] loadProfileAndPermissions:start", {
-        source,
-        "auth.user.id": currentUser?.id ?? null,
-      });
+    async (currentUser: User | null, origin: string) => {
+      console.log(
+        `[PROFILE_DEBUG] loadProfileAndPermissions chamada (origem=${origin}) userId=${currentUser?.id ?? null}`,
+      );
 
       if (!currentUser) {
+        console.log(
+          `[PROFILE_DEBUG] setProfile(null) — origem=${origin}, motivo=sem currentUser (logout/sem sessão)`,
+        );
         setProfile(null);
         setRoleName(null);
         setPermissions([]);
-        console.log("[BLOCO41][auth-provider] loadProfileAndPermissions:no-user", { source });
+        setProfileError(null);
         return;
       }
 
       try {
         const supabase = createClient();
-        const [profileResult, roleNameResult, permissionsResult] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
-          supabase.rpc("fn_get_my_role_name"),
-          supabase.rpc("fn_get_my_permissions"),
-        ]);
+        const [profileResult, roleNameResult, permissionsResult] = await withTimeout(
+          Promise.all([
+            supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
+            supabase.rpc("fn_get_my_role_name"),
+            supabase.rpc("fn_get_my_permissions"),
+          ]),
+          AUTH_TIMEOUT_MS,
+          "Tempo esgotado ao carregar perfil e permissões.",
+        );
 
         if (profileResult.error) {
           console.error("[auth-provider] falha ao carregar profile:", profileResult.error.message);
+          console.log(
+            `[PROFILE_DEBUG] profileResult.error — origem=${origin}, mensagem=${profileResult.error.message}, profile mantido (não sobrescreve com null)`,
+          );
+          setProfileError(profileResult.error.message);
+        } else {
+          console.log(
+            `[PROFILE_DEBUG] setProfile(${profileResult.data ? "dados" : "null"}) — origem=${origin}, id=${profileResult.data?.id ?? null}, full_name=${profileResult.data?.full_name ?? null}`,
+          );
+          setProfile(profileResult.data ?? null);
+          setProfileError(null);
         }
+
         if (roleNameResult.error) {
           console.error("[auth-provider] falha ao carregar role:", roleNameResult.error.message);
+        } else {
+          setRoleName(roleNameResult.data ?? null);
         }
+
         if (permissionsResult.error) {
           console.error(
             "[auth-provider] falha ao carregar permissions:",
             permissionsResult.error.message,
           );
+        } else {
+          setPermissions((permissionsResult.data ?? []) as PermissionEntry[]);
         }
-
-        // TODO(BLOCO 41 - diagnóstico, remover)
-        console.log("[BLOCO41][auth-provider] loadProfileAndPermissions:result", {
-          source,
-          "auth.user.id": currentUser.id,
-          "profile.id": profileResult.data?.id ?? null,
-          "profile.full_name": profileResult.data?.full_name ?? null,
-          "profile.error": profileResult.error?.message ?? null,
-          roleName: roleNameResult.data ?? null,
-          "role.error": roleNameResult.error?.message ?? null,
-        });
-
-        setProfile(profileResult.data ?? null);
-        setRoleName(roleNameResult.data ?? null);
-        setPermissions((permissionsResult.data ?? []) as PermissionEntry[]);
       } catch (err) {
         console.error("[auth-provider] erro inesperado ao carregar profile/permissions:", err);
-        setProfile(null);
-        setRoleName(null);
-        setPermissions([]);
+        console.log(
+          `[PROFILE_DEBUG] catch em loadProfileAndPermissions — origem=${origin}, erro=${err instanceof Error ? err.message : String(err)}, profile mantido (não sobrescreve com null)`,
+        );
+        setProfileError(err instanceof Error ? err.message : "Erro inesperado ao carregar perfil.");
       }
     },
     [],
@@ -119,30 +133,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
+    console.log("[PROFILE_DEBUG] useEffect montado — iniciando init() e onAuthStateChange");
+
     async function init() {
       try {
         const supabase = createClient();
         const {
           data: { session },
           error,
-        } = await supabase.auth.getSession();
+        } = await withTimeout(
+          supabase.auth.getSession(),
+          AUTH_TIMEOUT_MS,
+          "Tempo esgotado ao obter sessão (getSession).",
+        );
+
+        console.log(
+          `[PROFILE_DEBUG] init: getSession() resolvido — userId=${session?.user?.id ?? null}, error=${error?.message ?? null}, active=${active}`,
+        );
 
         if (error) {
           console.error("[auth-provider] getSession retornou erro:", error.message);
         }
 
-        if (!active) return;
+        if (!active) {
+          console.log(
+            "[PROFILE_DEBUG] init: effect desmontado antes de getSession resolver — abortando (active=false)",
+          );
+          return;
+        }
         setUser(session?.user ?? null);
-        await loadProfileAndPermissions(session?.user ?? null, "init:getSession");
+        await loadProfileAndPermissions(session?.user ?? null, "init");
       } catch (err) {
         console.error("[auth-provider] erro inesperado ao inicializar sessão:", err);
+        console.log(
+          `[PROFILE_DEBUG] init: catch — erro=${err instanceof Error ? err.message : String(err)}, active=${active}`,
+        );
         if (!active) return;
+        console.log(
+          "[PROFILE_DEBUG] setProfile(null) — origem=init.catch, motivo=getSession()/init lançou exceção",
+        );
         setUser(null);
         setProfile(null);
         setRoleName(null);
         setPermissions([]);
+        setProfileError(
+          err instanceof Error ? err.message : "Erro inesperado ao inicializar sessão.",
+        );
       } finally {
-        if (active) setIsLoading(false);
+        if (active) {
+          console.log("[PROFILE_DEBUG] init: finally — setIsLoading(false)");
+          setIsLoading(false);
+        } else {
+          console.log(
+            "[PROFILE_DEBUG] init: finally — active=false, NÃO chama setIsLoading(false)",
+          );
+        }
       }
     }
 
@@ -153,14 +198,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient();
       const { data: subscription } = supabase.auth.onAuthStateChange(
         async (event: string, session: Session | null) => {
-          if (!active) return;
-          // TODO(BLOCO 41 - diagnóstico, remover)
-          console.log("[BLOCO41][auth-provider] onAuthStateChange", {
-            event,
-            "session.user.id": session?.user?.id ?? null,
-          });
+          console.log(
+            `[PROFILE_DEBUG] onAuthStateChange disparado — event=${event}, userId=${session?.user?.id ?? null}, active=${active}`,
+          );
+          if (!active) {
+            console.log(
+              `[PROFILE_DEBUG] onAuthStateChange: effect desmontado (active=false) — ignorando event=${event}`,
+            );
+            return;
+          }
           setUser(session?.user ?? null);
           await loadProfileAndPermissions(session?.user ?? null, `onAuthStateChange:${event}`);
+          console.log(`[PROFILE_DEBUG] onAuthStateChange (event=${event}): setIsLoading(false)`);
           setIsLoading(false);
         },
       );
@@ -170,12 +219,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return () => {
+      console.log(
+        "[PROFILE_DEBUG] useEffect desmontado — active=false, unsubscribe onAuthStateChange",
+      );
       active = false;
       unsubscribe?.();
     };
   }, [loadProfileAndPermissions]);
 
   const refreshProfile = useCallback(async () => {
+    console.log(`[PROFILE_DEBUG] refreshProfile chamado — userId=${user?.id ?? null}`);
     await loadProfileAndPermissions(user, "refreshProfile");
   }, [loadProfileAndPermissions, user]);
 
@@ -186,6 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("[auth-provider] erro ao encerrar sessão:", err);
     } finally {
+      console.log("[PROFILE_DEBUG] setProfile(null) — origem=signOut, motivo=logout explícito");
       setUser(null);
       setProfile(null);
       setRoleName(null);
@@ -200,13 +254,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // logins, não invalida sessões já abertas).
   useEffect(() => {
     if (profile && profile.status !== "active") {
+      console.log(
+        `[PROFILE_DEBUG] signOut automático — profile.status=${profile.status} (esperado: active)`,
+      );
       void signOut();
     }
   }, [profile, signOut]);
 
+  console.log(
+    `[PROFILE_DEBUG] render — isLoading=${isLoading}, profile.id=${profile?.id ?? null}, profile.full_name=${profile?.full_name ?? null}, profileError=${profileError}`,
+  );
+
   return (
     <AuthContext.Provider
-      value={{ user, profile, roleName, permissions, isLoading, signOut, refreshProfile }}
+      value={{
+        user,
+        profile,
+        roleName,
+        permissions,
+        isLoading,
+        profileError,
+        signOut,
+        refreshProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>

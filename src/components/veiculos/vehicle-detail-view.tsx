@@ -13,19 +13,15 @@ type VehicleDetailViewProps = {
 export function VehicleDetailView({ id }: VehicleDetailViewProps) {
   const hasHydrated = useErpDataStore((state) => state.hasHydrated);
   const vehicles = useErpDataStore((state) => state.vehicles);
-  const vehicle = findVehicleBySlug(vehicles, id);
-  const client = useErpDataStore((state) =>
-    state.clients.find((item) => item.id === vehicle?.clientId),
-  );
-  const inspections = useErpDataStore((state) =>
-    state.inspections.filter((inspection) => inspection.vehicleId === id),
-  );
-  const quotes = useErpDataStore((state) => state.quotes.filter((quote) => quote.vehicleId === id));
-  const serviceOrders = useErpDataStore((state) =>
-    state.serviceOrders.filter((order) => order.vehicleId === id),
-  );
+  const clients = useErpDataStore((state) => state.clients);
+  const inspections = useErpDataStore((state) => state.inspections);
+  const quotes = useErpDataStore((state) => state.quotes);
+  const serviceOrders = useErpDataStore((state) => state.serviceOrders);
   const receivables = useErpDataStore((state) => state.receivables);
   const events = useErpDataStore((state) => state.events);
+
+  const vehicle = findVehicleBySlug(vehicles, id);
+  const client = clients.find((item) => item.id === vehicle?.clientId);
 
   if (!hasHydrated) {
     return null;
@@ -39,9 +35,9 @@ export function VehicleDetailView({ id }: VehicleDetailViewProps) {
     <VehicleDetail
       vehicle={vehicle}
       client={client}
-      inspections={inspections}
-      quotes={quotes}
-      serviceOrders={serviceOrders}
+      inspections={inspections.filter((inspection) => inspection.vehicleId === vehicle.id)}
+      quotes={quotes.filter((quote) => quote.vehicleId === vehicle.id)}
+      serviceOrders={serviceOrders.filter((order) => order.vehicleId === vehicle.id)}
       receivables={receivables}
       events={events}
     />

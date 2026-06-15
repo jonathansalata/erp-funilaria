@@ -176,7 +176,8 @@
       "Bash(rm -f cookies.txt)",
       "Bash(curl -s -c cookies.txt -o /dev/null http://localhost:3000/login)",
       "Bash(node scripts/verify-bloco-39.mjs)",
-      "Bash(node scripts-tmp/verify-bloco-40.mjs)"
+      "Bash(node scripts-tmp/verify-bloco-40.mjs)",
+      "Bash(echo \"exit=$?\")"
     ],
     "additionalDirectories": [
       "\\tmp",

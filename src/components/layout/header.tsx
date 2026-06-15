@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
+import { formatDateTime } from "@/lib/utils";
 
 function initials(name: string): string {
   return name
@@ -42,16 +43,23 @@ function initials(name: string): string {
 
 export function Header() {
   const pathname = usePathname();
-  const { user, profile, roleName, signOut } = useAuth();
+  const { profile, isLoading, profileError, signOut } = useAuth();
 
-  // TODO(BLOCO 41 - diagnóstico, remover)
-  console.log("[BLOCO41][header] render", {
-    pathname,
-    "auth.user.id": user?.id ?? null,
-    "profile.id": profile?.id ?? null,
-    "profile.full_name": profile?.full_name ?? null,
-    roleName,
-  });
+  // Bloco 42/43: diferencia "carregando" (sem profile ainda, mas sem erro) de "erro ao carregar"
+  // (sem profile e com `profileError`) e de "sem perfil" (sessão sem profile vinculado).
+  const avatarFallback = profile
+    ? initials(profile.full_name)
+    : isLoading
+      ? "…"
+      : profileError
+        ? "!"
+        : "?";
+  // Bloco 43: o e-mail nunca é exibido no Header — apenas `profile.full_name`.
+  const lastAccessLabel = profile
+    ? profile.last_login_at
+      ? `Último acesso: ${formatDateTime(profile.last_login_at)}`
+      : "Último acesso: Primeiro acesso"
+    : null;
 
   return (
     <header className="bg-background border-border sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:px-6">
@@ -118,14 +126,21 @@ export function Header() {
         <ThemeToggle />
 
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" className="h-auto gap-2 px-1.5 py-1" />}
+          >
             <Avatar size="sm">
               {profile?.avatar_url && (
                 <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
               )}
-              <AvatarFallback>{profile ? initials(profile.full_name) : "?"}</AvatarFallback>
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
             </Avatar>
-            <span className="hidden text-sm font-medium sm:inline">{profile?.full_name}</span>
+            {profile && (
+              <span className="hidden flex-col items-start sm:flex">
+                <span className="text-sm font-medium">{profile.full_name}</span>
+                <span className="text-muted-foreground text-xs">{lastAccessLabel}</span>
+              </span>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
